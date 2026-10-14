@@ -6,10 +6,11 @@ import { authService } from './auth';
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('Laravel-ready HTTP boundary', () => {
   it('sends the remember preference to the server without storing credentials locally', async () => {
-    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}'))); vi.stubGlobal('fetch', fetcher);
+    const session = { user: { id: 'u1', name: 'Owner', email: 'owner@example.com', emailVerified: true }, businesses: [], activeBusinessId: null };
+    const fetcher = vi.fn().mockImplementation(url => Promise.resolve(url === '/sanctum/csrf-cookie' ? new Response(null, { status: 204 }) : new Response(JSON.stringify(session)))); vi.stubGlobal('fetch', fetcher);
     const auth = authService(createHttpClient('/api')); await auth.login('owner@example.com', 'password123', true);
-    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ email: 'owner@example.com', password: 'password123', remember: true });
-    await auth.login('owner@example.com', 'password123'); expect(JSON.parse(fetcher.mock.calls[1][1].body).remember).toBe(false);
+    expect(fetcher.mock.calls[0][0]).toBe('/sanctum/csrf-cookie'); expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ email: 'owner@example.com', password: 'password123', remember: true });
+    await auth.login('owner@example.com', 'password123'); expect(JSON.parse(fetcher.mock.calls[3][1].body).remember).toBe(false);
     expect(localStorage.getItem('password')).toBeNull();
   });
   it('sends cookie credentials, tenant context, CSRF and typed JSON through one client', async () => {

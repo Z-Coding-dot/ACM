@@ -1,15 +1,17 @@
 import { ApiError } from './errors';
 export const SESSION_EXPIRED_EVENT = 'acm:session-expired';
 export interface RequestOptions { method?: string; body?: unknown; businessId?: string }
-export interface HttpClient { request<T>(path: string, options?: RequestOptions): Promise<T> }
+export interface HttpClient { request<T>(path: string, options?: RequestOptions): Promise<T>; csrf(): Promise<void> }
 export function createHttpClient(baseUrl: string, timeoutMs = 15000): HttpClient {
   const base = baseUrl.replace(/\/$/, '');
-  return {
+  const client: HttpClient = {
+    async csrf() { await client.request<void>('/sanctum/csrf-cookie'); },
     async request<T>(path: string, { method = 'GET', body, businessId }: RequestOptions = {}): Promise<T> {
       if (!navigator.onLine) throw new ApiError('error.offline', 0);
       const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const response = await fetch(`${base}${path}`, {
+        const url = path === '/sanctum/csrf-cookie' ? (/^https?:\/\//.test(base) ? new URL('/sanctum/csrf-cookie', base).href : '/sanctum/csrf-cookie') : `${base}${path}`;
+        const response = await fetch(url, {
           method, credentials: 'include', signal: controller.signal,
           headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(businessId ? { 'X-Business-ID': businessId } : {}), ...csrfHeader() },
           body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -28,6 +30,7 @@ export function createHttpClient(baseUrl: string, timeoutMs = 15000): HttpClient
       } finally { clearTimeout(timeout); }
     },
   };
+  return client;
 }
 function csrfHeader(): Record<string, string> {
   const value = document.cookie.split('; ').find(c => c.startsWith('XSRF-TOKEN='))?.slice(11);

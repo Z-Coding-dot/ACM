@@ -108,7 +108,7 @@ export function AppLayout() {
                 className="input"
                 value={workspace.business.id}
                 onChange={(e) => {
-                  workspace.switchBusiness(e.target.value);
+                  void workspace.switchBusiness(e.target.value).catch(setError);
                   navigate("/app/overview");
                 }}>
                 {workspace.session!.businesses.map((b) => (
@@ -217,7 +217,7 @@ export function AppLayout() {
                 className="input"
                 value={workspace.business.id}
                 onChange={(e) => {
-                  workspace.switchBusiness(e.target.value);
+                  void workspace.switchBusiness(e.target.value).catch(setError);
                   setMore(false);
                   navigate("/app/overview");
                 }}

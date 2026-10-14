@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigationType } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowUpRight, Menu, UserRound, ArrowRight } from "lucide-react";
+import { ArrowUpRight, Menu, UserRound, ArrowRight, ArrowUp } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { useAuth } from "../../app/workspace";
 import { LanguageDropdown } from "../../components/ui/language-dropdown";
@@ -82,7 +82,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           className="public-container public-nav"
           data-authenticated={!!session}
         >
-          <BrandLogo className="public-brand" description />
+          <BrandLogo className="public-brand" wordmark={false} size={64} />
           <nav className="public-sections" aria-label={t("landing.navigation")}>
             <Link to="/#features">{t("landing.features")}</Link>
             <Link to="/#businesses">{t("landing.forBusinesses")}</Link>
@@ -121,7 +121,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
         <div className="public-container">
           <Reveal className="public-footer-grid">
             <div className="public-footer-brand">
-              <BrandLogo description />
+              <BrandLogo wordmark={false} size={64} />
               <p>{t("landing.footerDescription")}</p>
               <span className="public-language-note">
                 {t("landing.languages")}
@@ -137,9 +137,6 @@ export function PublicLayout({ children }: { children: ReactNode }) {
               <h2>{t("landing.footerResources")}</h2>
               <Link to="/about">{t("landing.productInfo")}</Link>
               <Link to="/about#data">{t("landing.dataInfo")}</Link>
-              <a href="/brand/ACM_LOGO.png" download>
-                {t("landing.brandAsset")}
-              </a>
             </nav>
             <nav aria-label={t("landing.footerWorkspace")}>
               <h2>{t("landing.footerWorkspace")}</h2>
@@ -163,7 +160,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           </Reveal>
           <div className="public-footer-bottom">
             <p>{t("landing.footerNote")}</p>
-            <Link to="/#public-main">{t("landing.backTop")}</Link>
+            <Link className="back-to-top" to="/#public-main" aria-label={t("landing.backTop")} title={t("landing.backTop")}><ArrowUp size={20} aria-hidden="true" /></Link>
           </div>
         </div>
       </footer>

@@ -75,14 +75,17 @@ export function createMockApi(delay = 180): Api {
       async search(bid, search, page) { await pause(); tenant(bid); const rows = db.customers.filter(c => c.businessId === bid && `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => b.createdAt.localeCompare(a.createdAt)); return { data: structuredClone(rows.slice((page - 1) * 6, page * 6)), meta: { currentPage: page, perPage: 6, total: rows.length, lastPage: Math.max(1, Math.ceil(rows.length / 6)) } }; },
     },
     services: resource<Service, ServiceInput>(db.services), staff: resource<StaffMember, StaffInput>(db.staff),
-    business: { async save(bid: string, input: Business) { await pause(); tenant(bid); const b = business(bid); Object.assign(b, structuredClone(input), { id: bid }); if (session) session.businesses = structuredClone(db.businesses); return structuredClone(b); } },
+    business: { async save(bid: string, input: Business) { await pause(); tenant(bid); const b = business(bid); Object.assign(b, structuredClone(input), { id: bid }); if (session) session.businesses = structuredClone(db.businesses); return structuredClone(b); }, async create() { throw new ApiError('error.generic', 501); } },
     auth: {
       async login(email, password) { await pause(); if (email !== 'demo@acm.example' || password !== 'Demo1234!') throw new ApiError('error.credentials', 401); initializeFixtures(); session = { user: { id: 'demo-user', name: 'Zia Parsa', email, businessId: db.businesses[0].id }, businesses: structuredClone(db.businesses), activeBusinessId: db.businesses[0].id }; return structuredClone(session); },
       async signup() { await pause(); throw new ApiError('auth.signupUnavailable', 501); },
       async forgotPassword() { await pause(); throw new ApiError('auth.resetUnavailable', 501); },
       async session() { await pause(); if (!session) throw new ApiError('error.unauthenticated', 401); return structuredClone(session); },
       async logout() { await pause(); session = null; },
-      async updateAccount(name, email) { await pause(); if (!session) throw new ApiError('error.unauthenticated', 401); session.user = { ...session.user, name, email }; },
+      async updateAccount(name, email) { await pause(); if (!session) throw new ApiError('error.unauthenticated', 401); session.user = { ...session.user, name, email }; return structuredClone(session); },
+      async resetPassword() { throw new ApiError('error.generic', 501); },
+      async resendVerification() { throw new ApiError('error.generic', 501); },
+      async selectBusiness(id) { tenant(id); session!.activeBusinessId = id; return structuredClone(session!); },
     },
   };
 }

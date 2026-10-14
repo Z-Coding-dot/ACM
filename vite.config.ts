@@ -1,10 +1,13 @@
 import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
-  server: { watch: { ignored: ['**/docs/**', '**/e2e/**', '**/README.md', '**/playwright-report/**', '**/test-results/**', '**/.npm-cache/**'] } },
+export default defineConfig(({ mode }) => {
+  const backend = loadEnv(mode, process.cwd(), 'VITE_').VITE_BACKEND_URL || 'http://127.0.0.1:8000';
+  return {
+  server: { port: 5173, strictPort: true, proxy: { '/api': backend, '/sanctum': backend }, watch: { ignored: ['**/backend/**', '**/docs/**', '**/e2e/**', '**/README.md', '**/playwright-report/**', '**/test-results/**', '**/.npm-cache/**'] } },
   build: { target: 'es2022' },
   plugins: [react(), tailwindcss(), VitePWA({
     registerType: 'prompt', injectRegister: null,
@@ -23,11 +26,11 @@ export default defineConfig({
     workbox: {
       clientsClaim: true,
       globPatterns: ['**/*.{js,css,html,png,webp,svg,woff2}'],
-      globIgnores: ['brand/ACM_LOGO.png'],
+      globIgnores: ['brand/ACM_LOGO.png', 'brand/acm-logo-transparent.png'],
       navigateFallback: '/index.html',
-      navigateFallbackDenylist: [/^\/api\//, /^\/sanctum\//],
+      navigateFallbackDenylist: [/^\/api\//, /^\/sanctum\//, /^\/auth\/google\//, /^\/email\/verify\//, /^\/up$/, /^\/health/],
       runtimeCaching: [], cleanupOutdatedCaches: true,
     },
   })],
   test: { environment: 'jsdom', setupFiles: './src/test/setup.ts', include: ['src/**/*.test.{ts,tsx}'], clearMocks: true },
-});
+}; });

@@ -2,7 +2,7 @@
 
 Audit: **13 October 2026**, Windows, Node **22.13.0**, Chromium/Playwright. Initial tree clean at `b547986`. The frontend, Carbon-informed design and original role brief were preserved. No backend, database or migrations were created.
 
-The initial audit below is retained as historical evidence. See the [public landing page addition](#public-landing-page-addition) for the latest routes, changed files, checks and totals.
+The earlier audits below are retained as historical evidence. See the [brand and authentication cleanup](#brand-and-authentication-cleanup) for the latest changes and verification.
 
 ## Fixes implemented
 
@@ -121,3 +121,38 @@ The app was served with `npm.cmd run dev -- --port 5174 --strictPort`; the PWA s
 - Existing manifest, worker update/install handling, safe cache and offline mutation checks pass. The public shell also reloads offline and navigates to the information route; this does not enable offline booking or real account creation.
 - Titles/descriptions/Open Graph text are translated client-side in the existing Vite SPA. No server-rendered metadata or deployed SEO behavior was tested. The earlier Lighthouse result remains a login measurement, not a measurement of this new homepage.
 - Native-speaker Dari review and physical-device/assistive-technology verification remain release checks. Real signup, login and persistence still require the separately developed backend. No known failures remain in the checks above.
+
+## Brand and authentication cleanup
+
+Updated **14 October 2026**, following the public-page, motion and authentication refinements. User-provided artwork and the existing Carbon-informed components were retained. No dependencies or backend implementation were added.
+
+### Delivered and changed files
+
+- `src/components/ui/brand.tsx`: configurable logo-only presentation and explicit mark sizing. Auth retains a compact wordmark; shared CSS tightens dashboard/auth logo-to-text spacing to 8px.
+- `src/features/public/public-layout.tsx`, `public.css`: logo-only navbar/footer, removed brand download link, accessible 44px Back to top arrow link. Demo & data continues to navigate to the real `/about#data` section. Signed-in names and mobile menu behavior are preserved.
+- `src/features/auth/auth-page.tsx`, `src/styles.css`: centered forms without a secondary column, mirrored Back to homepage arrow, shared Vazirmatn font token for Dari headings, controls and forms. Password visibility, remember preference and honest Google availability behavior remain intact.
+- `public/brand/acm-logo-transparent.png`: background-free derivative generated with imagegen; the owner's original `ACM_LOGO.png` is unchanged. `scripts/generate-icons.mjs` trims transparent margins and exports the UI WebP and PNG icons. Regular favicon/app/touch icons preserve alpha; the maskable installation icon has a separate opaque safe canvas.
+- `vite.config.ts`: both full-size source PNGs excluded from shell precaching; optimized runtime assets retain existing PWA behavior.
+- `e2e/landing.spec.ts`, `e2e/pwa.spec.ts`: assertions for logo-only branding, removed download link, icon navigation/focus, centered forms, actual Dari font families and served favicon transparency. Existing workflows and axe rules are preserved.
+- `README.md`, `docs/DESIGN_SYSTEM.md`, this report: current asset pipeline, visual decisions and verification scope; refreshed screenshots and axe evidence under `docs/`.
+
+### Verification scope
+
+The browser suite covers the homepage, information page, login and signup at **320, 390, 768 and 1440px** in English LTR and Dari RTL, including overflow, translated metadata, keyboard focus, mobile menus and reduced motion. The existing authenticated application checks cover all eight required widths. Font assertions inspect the computed family on Dari headings, email inputs and Google buttons.
+
+### Commands and results
+
+| Command executed | Result |
+| --- | --- |
+| `node scripts/generate-icons.mjs` | Exported trimmed UI mark and transparent icons; original unchanged |
+| `npm.cmd run check` | Passed: typecheck, lint, 349 translation keys, 46 unit/component tests across 12 files, live production build |
+| `npm.cmd run test:e2e` | Passed: all 16 scenarios, including existing application workflows |
+| `npx.cmd eslint e2e/pwa.spec.ts scripts/generate-icons.mjs` | Passed after the final PWA/icon changes |
+| `npm.cmd run build:demo` | Passed |
+| `npm.cmd run test:pwa` | Passed: all 5 scenarios, including served icon alpha, install/update/cache and offline public routes |
+| `npm.cmd run build` | Passed again after PWA verification; final output is the live API build with final icon assets |
+| `git -c core.whitespace=cr-at-eol diff --check` | Passed; existing Windows line endings retained |
+
+Recorded axe evidence contains **100 states with zero violations**: 68 existing app/auth/overlay states, 16 public states and 16 auth design states. No axe rules or existing workflow assertions were disabled. The mobile menu also passes its direct axe check. Refreshed desktop English/Dari dashboard, desktop landing, Dari mobile landing, desktop login and Dari mobile signup screenshots were visually inspected. The favicon corner pixel has alpha 0, the standard icons have transparency, and the padded maskable icon is opaque. Production builds retain the existing non-fatal Zod annotation notices.
+
+Real Google authentication and server-managed remember duration still require the separate backend. Demo sessions remain in memory and reset on reload. Native-speaker Dari review, physical Safari/iOS installation and assistive-technology checks remain external release work. Historical Lighthouse scores above predate this cleanup and are not measurements of the new auth layout.

@@ -7,6 +7,12 @@ import fa from '../src/i18n/locales/fa-AF.json' with { type: 'json' };
 test('public homepage, account links and information routes work without authentication', async ({ page }) => {
   await page.goto('/'); await expect(page).toHaveURL(/\/$/); await expect(page.locator('h1')).toContainText(en['landing.heroTitle']);
   await expect(page.locator('.public-brand .acm-mark')).toHaveJSProperty('naturalWidth', 270);
+  await expect(page.locator('.public-brand')).toHaveText('');
+  await expect(page.locator('.public-footer-brand .brand')).toHaveText('');
+  await expect(page.locator('.public-footer a[download]')).toHaveCount(0);
+  const backTop = page.locator('.public-footer').getByRole('link', { name: en['landing.backTop'], exact: true });
+  await expect(backTop).toHaveText(''); await backTop.click(); await expect(page.locator('#public-main')).toBeFocused();
+  await page.goto('/');
   await expect(page).toHaveTitle(`${en['landing.metaTitle']} · ${en['app.name']}`); await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', en['landing.metaDescription']);
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', en['landing.metaDescription']);
   await page.locator('.public-auth').getByRole('link', { name: 'Get started' }).click(); await expect(page).toHaveURL(/\/signup$/); await expect(page.locator('h1')).toHaveText('Create an account');
@@ -40,6 +46,7 @@ test('homepage and information page fit all required widths and pass axe in Engl
         if (path === '/about') await page.getByRole('link', { name: messages['landing.productInfo'], exact: true }).click();
         await expect(page.locator('h1')).toBeVisible();
         await expect(page.locator('html')).toHaveAttribute('lang', language);
+        if (language === 'fa-AF') await expect(page.locator('h1')).toHaveCSS('font-family', /Vazirmatn/);
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), `${language} ${width} ${path}`).toBe(false);
         if (width <= 900) await expect(page.getByRole('button', { name: messages['landing.menu'], exact: true })).toBeVisible(); else await expect(page.locator('.public-auth a').last()).toBeVisible();
         const label = `${language} ${width} ${path}`; const audit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze(); results.push({ label, violations: audit.violations });
@@ -69,6 +76,10 @@ test('auth redesign validates controls, Google availability and all public width
   for (const [language, messages] of [['en', en], ['fa-AF', fa]] as const) for (const width of [320, 390, 768, 1440]) for (const path of ['/login', '/signup']) {
     await page.setViewportSize({ width, height: 960 }); await page.goto(path); await expect(page.locator('h1')).toBeVisible();
     if (language === 'fa-AF') { await page.getByRole('button', { name: 'Change language' }).click(); await page.getByRole('menuitemradio', { name: 'دری' }).click(); await expect(page.getByRole('menu')).toHaveCount(0); }
+    await expect(page.locator('html')).toHaveAttribute('lang', language);
+    await expect(page.locator('.auth-main > *')).toHaveCount(1); await expect(page.locator('.auth-main aside')).toHaveCount(0);
+    await expect(page.locator('.auth-footer').getByRole('link', { name: messages['landing.backHome'] })).toHaveAttribute('href', '/');
+    if (language === 'fa-AF') for (const selector of ['h1', '#auth-email', '.google-sign-in']) await expect(page.locator(selector)).toHaveCSS('font-family', /Vazirmatn/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), `${language} ${width} ${path}`).toBe(false);
     await expect(page.getByRole('button', { name: messages['auth.showPassword'] })).toBeVisible();
     const label = `${language} ${width} ${path}`; const audit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze(); results.push({ label, violations: audit.violations }); await mkdir('docs/audits', { recursive: true }); await writeFile('docs/audits/auth-design-axe.json', JSON.stringify(results, null, 2)); expect(audit.violations, label).toEqual([]);

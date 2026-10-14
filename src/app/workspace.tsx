@@ -9,7 +9,9 @@ import { ApiError } from '../services/errors';
 
 interface AuthContextValue {
   session: Session | null; loading: boolean; login: (email: string, password: string, remember?: boolean) => Promise<void>;
-  logout: () => Promise<void>; switchBusiness: (id: string) => void; updateBusiness: (b: Business) => void;
+  signup: (name: string, email: string, password: string, confirmation: string) => Promise<void>;
+  refreshSession: () => Promise<Session>; resetPassword: (email: string, token: string, password: string, confirmation: string) => Promise<void>;
+  logout: () => Promise<void>; switchBusiness: (id: string) => Promise<void>; updateBusiness: (b: Business) => void;
   updateUser: (name: string, email: string) => void;
   bootError: unknown; expired: boolean; retrySession: () => void;
 }
@@ -21,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   useEffect(() => {
     let active = true; setLoading(true); setBootError(null);
-    api.auth.session().then(s => { if (active) setSession(s); }).catch(error => { if (active && !(error instanceof ApiError && [401, 419].includes(error.status))) setBootError(error); }).finally(() => { if (active) setLoading(false); });
+    api.auth.session().then(s => { if (active) { setSession(s); const locale = s.businesses.find(b => b.id === s.activeBusinessId)?.locale || s.user.locale; if (locale) void i18n.changeLanguage(locale); } }).catch(error => { if (active && !(error instanceof ApiError && [401, 419].includes(error.status))) setBootError(error); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [attempt]);
   useEffect(() => {
@@ -32,8 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     session, loading, bootError, expired, retrySession: () => setAttempt(n => n + 1),
     async login(email, password, remember = false) { const s = await api.auth.login(email, password, remember); queryClient.clear(); setBootError(null); setExpired(false); setSession(s); const b = s.businesses.find(b => b.id === s.activeBusinessId); if (b) await i18n.changeLanguage(b.locale); },
+    async signup(name, email, password, confirmation) { const s = await api.auth.signup(name, email, password, confirmation, i18n.language === 'fa-AF' ? 'fa-AF' : 'en'); queryClient.clear(); setSession(s); setBootError(null); setExpired(false); },
+    async refreshSession() { const s = await api.auth.session(); await queryClient.cancelQueries(); queryClient.clear(); setSession(s); setBootError(null); return s; },
+    async resetPassword(email, token, password, confirmation) { await api.auth.resetPassword(email, token, password, confirmation); await queryClient.cancelQueries(); queryClient.clear(); setSession(null); },
     async logout() { await api.auth.logout(); queryClient.clear(); setSession(null); },
-    switchBusiness(id) { if (!session?.businesses.some(b => b.id === id)) return; queryClient.clear(); setSession({ ...session, activeBusinessId: id }); void i18n.changeLanguage(session.businesses.find(b => b.id === id)!.locale); },
+    async switchBusiness(id) { if (!session?.businesses.some(b => b.id === id)) return; const s = await api.auth.selectBusiness(id); await queryClient.cancelQueries(); queryClient.clear(); setSession(s); await i18n.changeLanguage(s.businesses.find(b => b.id === id)!.locale); },
     updateBusiness(b) { setSession(s => s && ({ ...s, businesses: s.businesses.map(old => old.id === b.id ? b : old) })); },
     updateUser(name, email) { setSession(s => s && ({ ...s, user: { ...s.user, name, email } })); },
   };

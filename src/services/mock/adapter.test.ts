@@ -55,7 +55,7 @@ describe('demo adapter contract', () => {
     expect((await api.customers.list('demo-clinic')).some(c => c.id === added.id)).toBe(false);
   });
   it('never fabricates signup or reset success, blocks offline changes, and clears sessions', async () => {
-    await expect(api.auth.signup('Name', 'name@example.com', 'password')).rejects.toBeInstanceOf(ApiError);
+    await expect(api.auth.signup('Name', 'name@example.com', 'password', 'password')).rejects.toBeInstanceOf(ApiError);
     await expect(api.auth.forgotPassword('demo@acm.example')).rejects.toMatchObject({ status: 501 });
     const offline = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     await expect(api.customers.save(bid, { name: 'Offline', email: '', phone: '+93700123456', notes: '' })).rejects.toMatchObject({ key: 'error.offline' });

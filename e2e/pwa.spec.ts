@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
+import sharp from 'sharp';
 test('production PWA manifest and all raster icons are valid', async ({ request }) => {
   const response = await request.get('/manifest.webmanifest'); expect(response.ok()).toBe(true);
   const manifest = await response.json(); expect(manifest.name).toBe('Appointment & Customer Management'); expect(manifest.display).toBe('standalone'); expect(manifest.start_url).toBe('/');
   expect(manifest.icons.some((icon: { purpose: string }) => icon.purpose === 'maskable')).toBe(true);
-  for (const icon of manifest.icons as { src: string; sizes: string }[]) { const response = await request.get(icon.src); expect(response.ok()).toBe(true); const buffer = await response.body(); expect(buffer.readUInt32BE(16)).toBe(Number(icon.sizes.split('x')[0])); expect(buffer.readUInt32BE(20)).toBe(Number(icon.sizes.split('x')[1])); }
+  for (const icon of manifest.icons as { src: string; sizes: string; purpose: string }[]) { const response = await request.get(icon.src); expect(response.ok()).toBe(true); const buffer = await response.body(); expect(buffer.readUInt32BE(16)).toBe(Number(icon.sizes.split('x')[0])); expect(buffer.readUInt32BE(20)).toBe(Number(icon.sizes.split('x')[1])); expect((await sharp(buffer).stats()).isOpaque).toBe(icon.purpose === 'maskable'); }
+  const favicon = await request.get('/icons/icon-192.png'); const pixels = await sharp(await favicon.body()).ensureAlpha().raw().toBuffer(); expect(pixels[3]).toBe(0);
 });
 test('install event received before login remains usable and is consumed once', async ({ page }) => {
   await page.goto('/login'); await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();

@@ -7,8 +7,10 @@ export interface Business {
   id: string; name: string; industry: Industry; email: string; phone: string;
   timeZone: string; currency: string; locale: Locale; hours: BusinessHours[];
   appointmentSettings: { slotMinutes: number; allowUnassigned: boolean; requireConfirmation: boolean };
+  role?: 'owner' | 'administrator' | 'receptionist' | 'staff'; permissions?: string[];
 }
-export interface User { id: string; name: string; email: string; businessId: string }
+export type BusinessInput = Omit<Business, 'id' | 'role' | 'permissions'>;
+export interface User { id: string; name: string; email: string; businessId: string | null; emailVerified?: boolean; locale?: Locale }
 export interface Customer { id: string; businessId: string; name: string; email: string; phone: string; notes: string; createdAt: string }
 export interface Service { id: string; businessId: string; name: string; description: string; durationMinutes: number; priceMinor: number; currency: string; active: boolean }
 export interface StaffAvailability { staffId: string; businessId: string; hours: BusinessHours[] }
@@ -18,6 +20,6 @@ export type CustomerInput = Omit<Customer, 'id' | 'businessId' | 'createdAt'>;
 export type ServiceInput = Omit<Service, 'id' | 'businessId'>;
 export type StaffInput = Omit<StaffMember, 'id' | 'businessId'>;
 export type AppointmentInput = Omit<Appointment, 'id' | 'businessId' | 'endsAt'>;
-export interface Session { user: User; businesses: Business[]; activeBusinessId: string }
+export interface Session { user: User; businesses: Business[]; activeBusinessId: string | null; verificationEmailSent?: boolean }
 export interface Page<T> { data: T[]; meta: { currentPage: number; perPage: number; total: number; lastPage: number } }
 export interface AppointmentFilters { search?: string; from?: string; to?: string; status?: string; staffId?: string }

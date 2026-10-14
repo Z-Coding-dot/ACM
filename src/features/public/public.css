@@ -108,6 +108,8 @@
 .public-footer-bottom { display: flex; justify-content: space-between; align-items: center; gap: var(--space-6); border-block-start: 1px solid var(--border-brand); padding-block-start: var(--space-5); margin-block-start: var(--space-8); font-size: var(--text-xs); color: var(--muted); }
 .public-footer-bottom p { max-width: 650px; }
 .public-footer-bottom > a { min-height: 44px; display: inline-flex; align-items: center; flex-shrink: 0; color: var(--brand); }
+.public-footer-bottom .back-to-top { width: 44px; justify-content: center; border: 1px solid var(--border-brand); border-radius: 50%; }
+.public-footer-bottom .back-to-top:hover { background: var(--surface); border-color: var(--brand); }
 .public-information { max-width: 1040px; padding-block: var(--public-section-space); }
 .public-information h1 { font-size: var(--public-heading); }
 .public-information-lead { font-size: 1rem; color: var(--muted); margin-block-start: var(--space-4); }
@@ -150,7 +152,7 @@
 }
 @media (max-width: 600px) {
   .public-brand { gap: var(--space-2); }
-  .public-brand .acm-mark { width: 34px; height: 34px; }
+  .public-brand .acm-mark { width: 44px; height: 44px; }
   .public-brand strong { font-size: 1rem; }
   .public-language .language-trigger > span { display: none; }
   .public-language .language-trigger { width: 44px; justify-content: center; }
@@ -174,5 +176,6 @@
   .public-footer-grid { gap: var(--space-7) var(--space-5); }
   .public-footer-brand { grid-column: 1 / -1; }
   .public-footer-bottom { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .public-footer-bottom .back-to-top { align-self: flex-end; }
 }
 @media (prefers-reduced-motion: reduce) { .public-site *, .public-site *::before { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
