@@ -16,15 +16,30 @@ const CustomerDetailPage = lazy(() => import('../features/customers/customer-pag
 const ServicesPage = lazy(() => import('../features/services/services-page').then(m => ({ default: m.ServicesPage })));
 const StaffPage = lazy(() => import('../features/staff/staff-page').then(m => ({ default: m.StaffPage })));
 const SettingsPage = lazy(() => import('../features/settings/settings-page').then(m => ({ default: m.SettingsPage })));
+const LandingPage = lazy(() => import('../features/public/landing-page').then(m => ({ default: m.LandingPage })));
+const ProductInfoPage = lazy(() => import('../features/public/product-info-page').then(m => ({ default: m.ProductInfoPage })));
+import { PwaControls } from '../components/layout/pwa-controls';
 import { SystemPage } from '../pages/system-pages';
-function ProtectedRoute() { const auth = useAuth(); if (!navigator.onLine) return <Navigate to="/offline" replace />; return auth.loading ? <Loading /> : auth.session ? <Outlet /> : <Navigate to="/login" replace />; }
+function ProtectedRoute() {
+  const auth = useAuth(); const location = useLocation();
+  if (!navigator.onLine) return <Navigate to="/offline" replace />;
+  return auth.loading ? <Loading /> : auth.session ? <Outlet /> : <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
+}
 function RouteEffects() {
   const { pathname } = useLocation(); const { t } = useTranslation();
-  useEffect(() => { window.scrollTo(0, 0); if (pathname.startsWith('/app/')) document.getElementById('main-content')?.focus(); const titles: Record<string, string> = { '/login': 'auth.login', '/signup': 'auth.signup', '/forgot-password': 'auth.forgot' }; if (titles[pathname]) document.title = `${t(titles[pathname])} · ${t('app.name')}`; }, [pathname, t]); return null;
+  useEffect(() => { if (!window.location.hash) window.scrollTo({ top: 0, behavior: 'instant' }); }, [pathname]);
+  useEffect(() => {
+    const titles: Record<string, string> = { '/': 'landing.metaTitle', '/about': 'public.title', '/login': 'auth.login', '/signup': 'auth.signup', '/forgot-password': 'auth.forgot' };
+    if (titles[pathname]) document.title = `${t(titles[pathname])} · ${t('app.name')}`;
+    const description = t(pathname === '/' ? 'landing.metaDescription' : pathname === '/about' ? 'public.description' : 'app.description');
+    document.querySelector('meta[name="description"]')?.setAttribute('content', description);
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', description);
+    if (titles[pathname]) document.querySelector('meta[property="og:title"]')?.setAttribute('content', `${t(titles[pathname])} · ${t('app.name')}`);
+  }, [pathname, t]); return null;
 }
-export function AppRouter() { return <><RouteEffects /><Suspense fallback={<Loading />}><Routes>
-  <Route path="/" element={<Navigate to="/app/overview" replace />} />
+export function AppRouter() { const location = useLocation(); return <><RouteEffects /><Suspense fallback={<Loading />}><Routes>
+  <Route path="/" element={<LandingPage />} /><Route path="/about" element={<ProductInfoPage />} />
   <Route path="/login" element={<AuthPage key="login" mode="login" />} /><Route path="/signup" element={<AuthPage key="signup" mode="signup" />} /><Route path="/forgot-password" element={<AuthPage key="forgot" mode="forgot-password" />} />
   <Route element={<ProtectedRoute />}><Route path="/app" element={<AppLayout />}><Route index element={<Navigate to="overview" replace />} /><Route path="overview" element={<OverviewPage />} /><Route path="calendar" element={<CalendarPage />} /><Route path="appointments" element={<AppointmentsPage />} /><Route path="appointments/new" element={<BookingPage />} /><Route path="appointments/:id" element={<AppointmentDetailPage />} /><Route path="customers" element={<CustomersPage />} /><Route path="customers/new" element={<NewCustomerPage />} /><Route path="customers/:id" element={<CustomerDetailPage />} /><Route path="services" element={<ServicesPage />} /><Route path="staff" element={<StaffPage />} /><Route path="settings" element={<SettingsPage />} /></Route></Route>
   <Route path="/offline" element={<SystemPage offline />} /><Route path="*" element={<SystemPage />} />
-</Routes></Suspense></>; }
+</Routes></Suspense>{!location.pathname.startsWith('/app') && <PwaControls />}</>; }

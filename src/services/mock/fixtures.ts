@@ -1,6 +1,6 @@
 import type { Business, Customer, Service, StaffMember, Appointment, Industry } from '../../types/domain';
 import { industries } from '../../config/industries';
-import { todayInZone, addDays, zonedTimestamp } from '../../lib/dates';
+import { todayInZone, addDays, zonedTimestamp, dayOfWeek } from '../../lib/dates';
 import { defaultHours } from '../../config/hours';
 const workspaceDefinitions: { id: string; name: string; industry: Industry; services: [string, string, number, number][] }[] = [
   { id: 'demo-salon', name: 'Olive Studio', industry: 'salon', services: [['Haircut & styling', 'A tailored cut and finish.', 45, 180000], ['Beard grooming', 'Shape, trim and finish.', 30, 90000], ['Colour consultation', 'Plan your next colour treatment.', 30, 75000]] },
@@ -14,6 +14,10 @@ export function createFixtures() {
   const customers: Customer[] = [], services: Service[] = [], staff: StaffMember[] = [], appointments: Appointment[] = [];
   for (const w of workspaceDefinitions) {
     const today = todayInZone('Asia/Kabul');
+    const openDate = (date: string, direction: number) => { let result = date; while (defaultHours.find(h => h.day === dayOfWeek(result))?.closed) result = addDays(result, direction); return result; };
+    const currentDate = openDate(today, 1);
+    const upcomingDate = openDate(addDays(currentDate, 1), 1);
+    const historyDate = openDate(addDays(today, -1), -1);
     const names = ['Sara Ahmadi', 'Omar Rahimi', 'Laila Amiri', 'Farid Noori', 'Maryam Azizi', 'Ali Karimi', 'Nadia Rahman', 'Yusuf Salimi'];
     names.forEach((name, i) => customers.push({ id: `${w.id}-c${i + 1}`, businessId: w.id, name, email: `${name.toLowerCase().replace(' ', '.')}@example.com`, phone: `+93 700 120 ${String(100 + i)}`, notes: '', createdAt: zonedTimestamp(addDays(today, -i), '08:00', 'Asia/Kabul') }));
     w.services.forEach(([name, description, durationMinutes, priceMinor], i) => services.push({ id: `${w.id}-s${i + 1}`, businessId: w.id, name, description, durationMinutes, priceMinor, currency: 'AFN', active: true }));
@@ -21,7 +25,7 @@ export function createFixtures() {
     for (let i = 0; i < 12; i++) {
       const offset = i < 6 ? 0 : i < 9 ? 1 : -1;
       const service = services.find(s => s.id === `${w.id}-s${i % 3 + 1}`)!;
-      const startsAt = zonedTimestamp(addDays(today, offset), `${String(9 + i % 6).padStart(2, '0')}:00`, 'Asia/Kabul');
+      const startsAt = zonedTimestamp(offset < 0 ? historyDate : offset === 0 ? currentDate : upcomingDate, `${String(9 + i % 6).padStart(2, '0')}:00`, 'Asia/Kabul');
       appointments.push({ id: `${w.id}-a${i + 1}`, businessId: w.id, customerId: `${w.id}-c${i % 8 + 1}`, serviceId: service.id, staffId: `${w.id}-t${i % 3 + 1}`, startsAt, endsAt: new Date(new Date(startsAt).getTime() + service.durationMinutes * 60000).toISOString(), status: offset < 0 ? (i === 11 ? 'no-show' : 'completed') : i === 5 ? 'cancelled' : i % 2 ? 'scheduled' : 'confirmed', notes: '' });
     }
   }

@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
@@ -15,11 +17,12 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:pwa": "playwright test --config playwright.pwa.config.ts",
+    "audit:lighthouse": "node scripts/lighthouse-audit.mjs",
     "check": "npm run typecheck && npm run lint && npm run i18n:check && npm test && npm run build"
   },
   "dependencies": {
-    "@fontsource/vazirmatn": "^5.2.8",
     "@fontsource/inter": "^5.2.8",
+    "@fontsource/vazirmatn": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.90.0",
     "framer-motion": "^12.23.0",
@@ -33,6 +36,7 @@
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
     "@eslint/js": "^9.36.0",
     "@playwright/test": "^1.55.0",
     "@tailwindcss/vite": "^4.1.13",
@@ -48,6 +52,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.4.0",
     "jsdom": "^26.1.0",
+    "lighthouse": "^12.8.2",
     "sharp": "^0.34.3",
     "tailwindcss": "^4.1.13",
     "typescript": "~5.9.2",

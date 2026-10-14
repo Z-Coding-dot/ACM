@@ -31,6 +31,13 @@ describe('demo adapter contract', () => {
     const person = await api.staff.get(bid, `${bid}-t1`); await api.staff.save(bid, { ...person, active: false }, person.id);
     expect(await api.appointments.availability(bid, `${bid}-s1`, person.id, '2026-10-13')).toEqual([]);
   });
+  it('commits at most one of two simultaneous conflicting bookings', async () => {
+    const slots = await api.appointments.availability(bid, `${bid}-s1`, `${bid}-t1`, '2026-10-14');
+    const input = { customerId, serviceId: `${bid}-s1`, staffId: `${bid}-t1`, startsAt: slots[0], status: 'scheduled' as const, notes: '' };
+    const results = await Promise.allSettled([api.appointments.save(bid, input), api.appointments.save(bid, input)]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+  });
   it('rechecks customer conflicts when only the contact is edited', async () => {
     const other = await api.customers.save(bid, { name: 'Other booking test', email: '', phone: '+93700123456', notes: '' });
     const first = await api.appointments.availability(bid, `${bid}-s1`, `${bid}-t1`, '2026-10-14');

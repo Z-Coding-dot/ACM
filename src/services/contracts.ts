@@ -6,5 +6,5 @@ export interface Api {
   services: Resource<Service, ServiceInput>;
   staff: Resource<StaffMember, StaffInput>;
   business: { save(businessId: string, input: Business): Promise<Business> };
-  auth: { login(email: string, password: string): Promise<Session>; signup(name: string, email: string, password: string): Promise<void>; forgotPassword(email: string): Promise<void>; session(): Promise<Session>; logout(): Promise<void>; updateAccount(name: string, email: string): Promise<void> };
+  auth: { login(email: string, password: string, remember?: boolean): Promise<Session>; signup(name: string, email: string, password: string): Promise<void>; forgotPassword(email: string): Promise<void>; session(): Promise<Session>; logout(): Promise<void>; updateAccount(name: string, email: string): Promise<void> };
 }

@@ -4,14 +4,15 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  server: { watch: { ignored: ['**/docs/**', '**/e2e/**', '**/README.md', '**/playwright-report/**', '**/test-results/**', '**/.npm-cache/**'] } },
   build: { target: 'es2022' },
   plugins: [react(), tailwindcss(), VitePWA({
     registerType: 'prompt', injectRegister: null,
-    includeAssets: ['icon.svg', 'icons/*.png'],
+    includeAssets: ['brand/acm-mark.webp', 'brand/google-g.png', 'icons/*.png'],
     manifest: {
-      name: 'Appointment & Customer Manager', short_name: 'ACM',
+      name: 'Appointment & Customer Management', short_name: 'ACM',
       description: 'Scheduling and customer management for service businesses',
-      start_url: '/app/overview', scope: '/', display: 'standalone',
+      start_url: '/', scope: '/', display: 'standalone',
       background_color: '#f7f8f6', theme_color: '#215a4a',
       icons: [
         { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -21,7 +22,8 @@ export default defineConfig({
     },
     workbox: {
       clientsClaim: true,
-      globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
+      globPatterns: ['**/*.{js,css,html,png,webp,svg,woff2}'],
+      globIgnores: ['brand/ACM_LOGO.png'],
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/api\//, /^\/sanctum\//],
       runtimeCaching: [], cleanupOutdatedCaches: true,

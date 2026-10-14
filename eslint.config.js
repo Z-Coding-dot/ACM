@@ -9,4 +9,5 @@ export default tseslint.config(
   { files: ['**/*.{ts,tsx}'], languageOptions: { globals: globals.browser }, plugins: { 'react-hooks': hooks, 'react-refresh': refresh }, rules: { ...hooks.configs.recommended.rules, 'react-refresh/only-export-components': ['warn', { allowConstantExport: true }] } },
   { files: ['**/*.mjs', '*.config.js'], languageOptions: { globals: globals.node } },
   { files: ['src/app/workspace.tsx'], rules: { 'react-refresh/only-export-components': 'off' } },
+  { files: ['src/app/pwa.tsx'], rules: { 'react-refresh/only-export-components': 'off' } },
 );
