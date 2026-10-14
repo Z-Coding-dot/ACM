@@ -32,3 +32,9 @@ Five independent demo tenants exercise these configurations. Switching the activ
 Configurations must not introduce specialized fields into neutral shared components. An extension should use a typed optional feature boundary rather than duplicating pages. If staff assignment is disabled, configure `allowUnassigned: true` so its bookings remain valid.
 
 Clinic support is limited to scheduling and basic contact details. Contact notes are disabled for clinics and the guidance asks users not to enter medical information. There are no records, diagnoses, prescriptions, insurance workflows or healthcare regulatory claims.
+
+## Verification and limitations (13 October 2026)
+
+Playwright exercises salon, clinic and education through contact creation, complete service/staff/time booking, appointment history and calendar records, then checks all three categories' English and Dari navigation terminology. Tenant switching also verifies saved business names survive switching away and back. Shared booking validation/conflict/closure behavior has adapter tests. The five categories share page implementations rather than duplicated workflows.
+
+All current categories enable the same main navigation; clinic disables contact notes and education uses session terminology. The layer supports additional field/navigation/feature choices, but this phase does not provide separate specialist workflows or an industry configuration admin editor. Consulting and other are configured but were not subjected to the same full browser workflow matrix. Business preferences are separate from category defaults, and the backend must validate membership and configuration values. Native-speaker Dari terminology review remains required.

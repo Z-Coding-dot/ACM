@@ -1,0 +1,66 @@
+[
+  {
+    "label": "en 320 /login",
+    "violations": []
+  },
+  {
+    "label": "en 320 /signup",
+    "violations": []
+  },
+  {
+    "label": "en 390 /login",
+    "violations": []
+  },
+  {
+    "label": "en 390 /signup",
+    "violations": []
+  },
+  {
+    "label": "en 768 /login",
+    "violations": []
+  },
+  {
+    "label": "en 768 /signup",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /login",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /signup",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 320 /login",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 320 /signup",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /login",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /signup",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 768 /login",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 768 /signup",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /login",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /signup",
+    "violations": []
+  }
+]

@@ -3,7 +3,7 @@ import type { Session } from '../types/domain';
 import type { HttpClient } from './http';
 export function authService(client: HttpClient): Api['auth'] {
   return {
-    login: (email, password) => client.request<Session>('/auth/login', { method: 'POST', body: { email, password } }),
+    login: (email, password, remember = false) => client.request<Session>('/auth/login', { method: 'POST', body: { email, password, remember } }),
     signup: (name, email, password) => client.request<void>('/auth/signup', { method: 'POST', body: { name, email, password } }),
     forgotPassword: email => client.request<void>('/auth/forgot-password', { method: 'POST', body: { email } }),
     session: () => client.request<Session>('/auth/session'),

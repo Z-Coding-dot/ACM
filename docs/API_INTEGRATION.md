@@ -9,7 +9,7 @@ This repository implements the frontend only. There are no Laravel files, databa
 - `npm run build` uses the live HTTP adapter; mock authentication is disabled in production mode even if someone sets `VITE_API_MODE=demo`.
 - Copy `.env.example` to `.env.production.local` and set `VITE_API_BASE_URL` to the Laravel API. Vite environment values are public; never put secrets there.
 
-The mock implements the same interfaces as the live services. Mock tenant checks help exercise the UI, but cannot establish server authorization. All five demo workspaces belong to a single demo account. Query keys start with the business ID; switching businesses clears the query cache and remounts workspace content.
+The mock implements the same interfaces as the live services. Mock tenant checks help exercise the UI, but cannot establish server authorization. All five demo workspaces belong to a single demo account. Fixtures are initialized on the first valid demo login. Query keys start with the business ID; switching businesses clears the query cache and remounts workspace content. Business saves also update the demo session's business snapshot. Conflict checking and committing a demo appointment run together without an asynchronous gap; the backend must provide its own transactional locking.
 
 ## Authentication and tenancy
 
@@ -17,12 +17,14 @@ Proposed session-cookie authentication with Laravel Sanctum: HttpOnly session co
 
 All workspace requests send `X-Business-ID`; Laravel must verify membership for that workspace and scope every lookup and mutation server-side. This header and frontend filtering are not security boundaries. No authentication token, session assertion, or customer data is persisted to localStorage.
 
+The implemented HTTP client includes credentials, encodes resource IDs, safely decodes the CSRF cookie, and aborts requests after 15 seconds. Startup session errors distinguish signed-out (401) from network/server failures, which offer retry. Authenticated 401/419 responses clear the protected session and cancel/clear private query data through `acm:session-expired`. Login failures do not expire an existing session; startup 401 is an ordinary signed-out response. Protected local paths, including query/hash, survive login; external and normalized traversal destinations are rejected.
+
 Auth endpoints are relative to `VITE_API_BASE_URL`:
 
 | Method | Endpoint | Input / response |
 | --- | --- | --- |
 | GET | `/auth/session` | Session below; 401 for signed-out |
-| POST | `/auth/login` | `{ "email": "…", "password": "…" }` → Session |
+| POST | `/auth/login` | `{ "email": "…", "password": "…", "remember": false }` → Session |
 | POST | `/auth/signup` | `{ "name": "…", "email": "…", "password": "…" }` → 204 after real server acceptance |
 | POST | `/auth/forgot-password` | `{ "email": "…" }` → 204, neutral anti-enumeration response |
 | POST | `/auth/logout` | 204, invalidate server session |
@@ -38,6 +40,10 @@ Auth endpoints are relative to `VITE_API_BASE_URL`:
 
 The UI submits real signup/reset requests only in live mode. The demo returns translated "unavailable" errors rather than claiming an email was sent or an account was created. Production user/email verification and permission models must be agreed with the backend team.
 
+The login checkbox passes `remember` through AuthProvider and the live service. Laravel must choose the actual session/cookie duration; the frontend never saves passwords or fabricates persistent authentication. The in-memory demo explicitly still resets after reload, regardless of this checkbox.
+
+Google buttons on login/signup use a separately configured `VITE_GOOGLE_AUTH_URL` (an absolute HTTPS OAuth entry URL supplied by the future backend, with HTTP allowed only for localhost development). There is no invented `/auth/google` API or frontend token exchange. Missing/invalid configuration or demo mode produces a translated unavailable state. The configured redirect receives the safe local `returnTo` destination; the backend must validate it again and own OAuth state/verification, callback handling, account creation and session cookies. No provider is configured or end-to-end Google authentication verified in this frontend phase.
+
 ## Resources and pagination
 
 `/appointments`, `/customers`, `/services`, `/staff`: GET collection, GET `/{id}`, POST create, PATCH `/{id}`. Details and mutations return `{ "data": DomainObject }`. Lists return Laravel-style metadata:
@@ -46,7 +52,7 @@ The UI submits real signup/reset requests only in live mode. The demo returns tr
 { "data": [], "meta": { "current_page": 1, "per_page": 6, "total": 0, "last_page": 1 } }
 ```
 
-Customer directory query: `search`, `page`, `per_page`; the adapter converts snake-case pagination metadata into TypeScript's camel-case model. Appointment filters: `search`, `from`, `to`, `status`, `staffId`, `page`. Date ranges are inclusive business-local ISO dates. Resource directory queries consume all pages for select options. Large-scale server-side selectors and bounded calendar queries are a future optimization.
+Customer directory query: `search`, `page`, `per_page`; the adapter converts snake-case pagination metadata into TypeScript's camel-case model. Appointment filters: `search`, `from`, `to`, `status`, `staffId`, `page`. Date ranges are inclusive business-local ISO dates. Resource directory and appointment-filter queries consume pages and reject non-array data, invalid page counts and more than 1,000 pages. Large-scale server-side selectors and bounded calendar queries are a future optimization. TypeScript models describe the expected contract; they do not provide exhaustive runtime validation of every returned domain field.
 
 Laravel API Resources should serialize domain properties in camelCase consistently (or add conversion in the services). IDs are strings. `businessId` comes from validated tenant context; the server must ignore or reject attempts to assign another tenant.
 
@@ -79,7 +85,7 @@ Related customers/services/staff are normalized by ID and resolved from resource
 
 Customer input: `{ name, email, phone, notes }`; server response adds `id`, `businessId`, ISO `createdAt`. Staff input: `{ name, email, phone, serviceIds, hours, active }`. Service input: `{ name, description, durationMinutes, priceMinor, currency, active }`; price is an integer in currency minor units. Currency uses ISO codes and the currency's fraction digits (JPY has zero); changing business currency does not convert existing service prices.
 
-Minor-unit conversion is explicitly defined for the eight currently supported currencies. AFN uses two minor-unit digits, independently of the browser's default display rounding. The AFN/JPY/PKR definitions were verified against the [official SIX ISO 4217 list](https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/lists/list-one.xml). Add and verify a currency's minor-unit exponent when extending the currency options.
+Minor-unit conversion is explicitly defined for the eight currently supported currencies. Display formatting explicitly uses the same exponent, so AFN/PKR fractional amounts are visible and JPY has no fraction. AFN uses two minor-unit digits, independently of the browser's default display rounding. The AFN/JPY/PKR definitions were verified against the [official SIX ISO 4217 list](https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/lists/list-one.xml). Add and verify a currency's minor-unit exponent when extending the currency options.
 
 Hours are seven entries, `day: 0` Sunday through `6` Saturday; `open`/`close` use business-local `HH:mm`. Overnight hours and date-specific exceptions are outside this first UI phase. All API timestamps are ISO 8601 with an explicit offset; the UI formats in business time zone and locale, using Gregorian calendar dates for consistent booking input.
 
@@ -89,10 +95,12 @@ Hours are seven entries, `day: 0` Sunday through `6` Saturday; `open`/`close` us
 { "message": "Validation failed", "errors": { "email": ["Invalid email"], "startsAt": ["Unavailable time"] } }
 ```
 
-422 field errors map to translated frontend messages for booking and contact forms; other forms show a translated request error. Arbitrary backend text is not rendered as interface copy. Central errors cover network/offline, 401, 403, 404, 409 conflicts, 419 CSRF/session expiration, 422, and 429. Auth provider checks `/auth/session` at startup. Full session-expiry interception and backend permissions should be wired during Laravel integration.
+422 field errors map to translated frontend messages for booking and contact forms; other forms show a translated request error. Arbitrary backend text is not rendered as interface copy. Central errors cover network/offline, timeout, invalid JSON/pagination, 401, 403, 404, 409 conflicts, 419 CSRF/session expiration, 422, and 429. Auth provider checks `/auth/session` at startup and responds to expiry as described above. HTTP contract tests use mocked responses; no running Laravel server has been tested.
 
 ## PWA and deployment
 
 Static shell assets are precached. There is no runtime API caching, mutation queue, or claim of offline booking. Offline startup routes to the translated offline screen; online data queries and writes reject while disconnected. Query data lives in memory, is cleared on logout/workspace switch, and is not a service-worker cache.
 
-Production installation requires HTTPS, a history fallback to `index.html`, appropriate CORS/CSRF/session settings and CSP. `/api/` and `/sanctum/` are excluded from navigation fallback. The manifest includes regular 192px/512px icons, a separately padded maskable icon, and an Apple touch icon. Update prompts request reloading after saving work. iOS guidance appears only on relevant devices.
+Production installation requires HTTPS, a history fallback to `index.html`, appropriate CORS/CSRF/session settings and CSP. `/api/` and `/sanctum/` are excluded from navigation fallback. The manifest includes regular 192px/512px icons, a separately padded maskable icon, and an Apple touch icon. A root provider captures install events before login and consumes the prompt once. Updates activate and reload only after the user accepts; controller-change handling also supports first-session/external worker updates. iOS guidance appears only on relevant devices.
+
+Playwright verifies offline reload and cache exclusion, a synthetic install-event lifecycle, and an actual waiting-worker update against a local production demo bundle. Physical-device installation, HTTPS deployment and real backend session/CSRF/permission behavior remain integration checks. See [verification evidence](VERIFICATION.md).

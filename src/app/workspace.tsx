@@ -4,21 +4,34 @@ import { api } from '../services';
 import type { Business, Session, Locale } from '../types/domain';
 import { industries } from '../config/industries';
 import i18n from '../i18n';
+import { SESSION_EXPIRED_EVENT } from '../services/http';
+import { ApiError } from '../services/errors';
 
 interface AuthContextValue {
-  session: Session | null; loading: boolean; login: (email: string, password: string) => Promise<void>;
+  session: Session | null; loading: boolean; login: (email: string, password: string, remember?: boolean) => Promise<void>;
   logout: () => Promise<void>; switchBusiness: (id: string) => void; updateBusiness: (b: Business) => void;
   updateUser: (name: string, email: string) => void;
+  bootError: unknown; expired: boolean; retrySession: () => void;
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bootError, setBootError] = useState<unknown>(null), [expired, setExpired] = useState(false), [attempt, setAttempt] = useState(0);
   const queryClient = useQueryClient();
-  useEffect(() => { let active = true; api.auth.session().then(s => { if (active) setSession(s); }).catch(() => {}).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
+  useEffect(() => {
+    let active = true; setLoading(true); setBootError(null);
+    api.auth.session().then(s => { if (active) setSession(s); }).catch(error => { if (active && !(error instanceof ApiError && [401, 419].includes(error.status))) setBootError(error); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [attempt]);
+  useEffect(() => {
+    const invalidate = () => { setSession(null); setExpired(true); void queryClient.cancelQueries(); queryClient.clear(); };
+    window.addEventListener(SESSION_EXPIRED_EVENT, invalidate);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, invalidate);
+  }, [queryClient]);
   const value: AuthContextValue = {
-    session, loading,
-    async login(email, password) { const s = await api.auth.login(email, password); queryClient.clear(); setSession(s); const b = s.businesses.find(b => b.id === s.activeBusinessId); if (b) await i18n.changeLanguage(b.locale); },
+    session, loading, bootError, expired, retrySession: () => setAttempt(n => n + 1),
+    async login(email, password, remember = false) { const s = await api.auth.login(email, password, remember); queryClient.clear(); setBootError(null); setExpired(false); setSession(s); const b = s.businesses.find(b => b.id === s.activeBusinessId); if (b) await i18n.changeLanguage(b.locale); },
     async logout() { await api.auth.logout(); queryClient.clear(); setSession(null); },
     switchBusiness(id) { if (!session?.businesses.some(b => b.id === id)) return; queryClient.clear(); setSession({ ...session, activeBusinessId: id }); void i18n.changeLanguage(session.businesses.find(b => b.id === id)!.locale); },
     updateBusiness(b) { setSession(s => s && ({ ...s, businesses: s.businesses.map(old => old.id === b.id ? b : old) })); },

@@ -1,0 +1,274 @@
+[
+  {
+    "label": "/login",
+    "violations": []
+  },
+  {
+    "label": "/signup",
+    "violations": []
+  },
+  {
+    "label": "/forgot-password",
+    "violations": []
+  },
+  {
+    "label": "/offline",
+    "violations": []
+  },
+  {
+    "label": "/missing-page",
+    "violations": []
+  },
+  {
+    "label": "fa-AF /login",
+    "violations": []
+  },
+  {
+    "label": "fa-AF /signup",
+    "violations": []
+  },
+  {
+    "label": "fa-AF /forgot-password",
+    "violations": []
+  },
+  {
+    "label": "fa-AF /offline",
+    "violations": []
+  },
+  {
+    "label": "fa-AF /missing-page",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/overview",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/calendar",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/appointments",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/appointments/new",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/appointments/demo-salon-a1",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/customers",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/customers/new",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/customers/demo-salon-c1",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/services",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/staff",
+    "violations": []
+  },
+  {
+    "label": "en 1440 /app/settings",
+    "violations": []
+  },
+  {
+    "label": "en 1440 service dialog",
+    "violations": []
+  },
+  {
+    "label": "en 1440 staff dialog",
+    "violations": []
+  },
+  {
+    "label": "en language menu",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/overview",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/calendar",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/appointments",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/appointments/new",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/appointments/demo-salon-a1",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/customers",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/customers/new",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/customers/demo-salon-c1",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/services",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/staff",
+    "violations": []
+  },
+  {
+    "label": "en 390 /app/settings",
+    "violations": []
+  },
+  {
+    "label": "en 390 service dialog",
+    "violations": []
+  },
+  {
+    "label": "en 390 staff dialog",
+    "violations": []
+  },
+  {
+    "label": "en mobile filters",
+    "violations": []
+  },
+  {
+    "label": "en language menu",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/overview",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/calendar",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/appointments",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/appointments/new",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/appointments/demo-salon-a1",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/customers",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/customers/new",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/customers/demo-salon-c1",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/services",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/staff",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 /app/settings",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 service dialog",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 1440 staff dialog",
+    "violations": []
+  },
+  {
+    "label": "fa-AF language menu",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/overview",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/calendar",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/appointments",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/appointments/new",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/appointments/demo-salon-a1",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/customers",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/customers/new",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/customers/demo-salon-c1",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/services",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/staff",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 /app/settings",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 service dialog",
+    "violations": []
+  },
+  {
+    "label": "fa-AF 390 staff dialog",
+    "violations": []
+  },
+  {
+    "label": "fa-AF mobile filters",
+    "violations": []
+  },
+  {
+    "label": "fa-AF language menu",
+    "violations": []
+  }
+]

@@ -19,4 +19,14 @@ describe('authentication screens', () => {
     const user = userEvent.setup(); mount('forgot-password'); await user.type(await screen.findByLabelText('Email address'), 'demo@acm.example'); await user.click(screen.getByRole('button', { name: 'Send reset link' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Demo mode cannot send email'));
   });
+  it('toggles password visibility and the remember preference without submitting', async () => {
+    const user = userEvent.setup(); mount('login'); const password = await screen.findByLabelText('Password'); await user.type(password, 'Password123!');
+    await user.click(screen.getByRole('button', { name: 'Show password' })); expect(password).toHaveAttribute('type', 'text'); expect(password).toHaveValue('Password123!');
+    await user.click(screen.getByRole('button', { name: 'Hide password' })); expect(password).toHaveAttribute('type', 'password');
+    await user.click(screen.getByRole('checkbox', { name: 'Remember me' })); expect(screen.getByRole('checkbox', { name: 'Remember me' })).toBeChecked(); expect(screen.getByText('Demo sessions still reset on reload.')).toBeVisible();
+  });
+  it('shows an honest unavailable state for the unconnected Google provider', async () => {
+    const user = userEvent.setup(); mount('signup'); await user.click(await screen.findByRole('button', { name: 'Continue with Google' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Google sign-in is not connected.'); expect(screen.getByRole('heading', { name: 'Create an account' })).toBeVisible();
+  });
 });

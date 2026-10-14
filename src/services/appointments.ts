@@ -1,6 +1,7 @@
 import type { Api } from './contracts';
 import type { Appointment, AppointmentInput } from '../types/domain';
 import type { HttpClient } from './http';
+import { ApiError } from './errors';
 import { apiResource } from './resource';
 export function appointmentService(client: HttpClient): Api['appointments'] {
   const resource = apiResource<Appointment, AppointmentInput>(client, '/appointments');
@@ -11,6 +12,7 @@ export function appointmentService(client: HttpClient): Api['appointments'] {
       for (let page = 1; ; page++) {
         params.set('page', String(page));
         const response = await client.request<{ data: Appointment[]; meta: { last_page: number } }>(`/appointments?${params}`, { businessId: bid });
+        if (!Array.isArray(response.data) || !Number.isInteger(response.meta?.last_page) || response.meta.last_page < 1 || page > 1000) throw new ApiError('error.invalidResponse', 502);
         data.push(...response.data);
         if (page >= response.meta.last_page) return data;
       }

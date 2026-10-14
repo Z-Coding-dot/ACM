@@ -14,6 +14,6 @@ describe('business-local dates and currency', () => {
     expect(formatMoney(1234, 'USD', 'en')).toBe('$12.34');
     expect(formatMoney(1234, 'JPY', 'en')).toBe('¥1,234');
     expect(currencyScale('AFN')).toBe(100);
-    expect(formatMoney(180000, 'AFN', 'en')).toBe('AFN 1,800');
+    expect(formatMoney(180000, 'AFN', 'en')).toBe('AFN 1,800.00');
   });
 });

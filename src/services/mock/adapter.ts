@@ -5,7 +5,12 @@ import { createFixtures } from './fixtures';
 import { dateInZone, dayOfWeek, minutes, clockTime, zonedTimestamp } from '../../lib/dates';
 
 export function createMockApi(delay = 180): Api {
-  const db = createFixtures();
+  const db: ReturnType<typeof createFixtures> = { businesses: [], customers: [], services: [], staff: [], appointments: [] };
+  function initializeFixtures() {
+    if (db.businesses.length) return;
+    const fixtures = createFixtures();
+    db.businesses.push(...fixtures.businesses); db.customers.push(...fixtures.customers); db.services.push(...fixtures.services); db.staff.push(...fixtures.staff); db.appointments.push(...fixtures.appointments);
+  }
   let session: Session | null = null;
   const pause = async () => { await new Promise(resolve => setTimeout(resolve, delay)); if (typeof navigator !== 'undefined' && !navigator.onLine) throw new ApiError('error.offline', 0); };
   const business = (id: string) => { const b = db.businesses.find(b => b.id === id); if (!b) throw new ApiError('error.notFound', 404); return b; };
@@ -57,9 +62,11 @@ export function createMockApi(delay = 180): Api {
         const endsAt = new Date(new Date(input.startsAt).getTime() + s.durationMinutes * 60000).toISOString();
         const overlappingCustomer = db.appointments.some(a => a.businessId === bid && a.id !== id && a.customerId === input.customerId && !['cancelled', 'no-show'].includes(a.status) && a.startsAt < endsAt && a.endsAt > input.startsAt);
         if (changed && overlappingCustomer) throw new ApiError('error.conflict', 409);
-        const saved = await appointments.save(bid, input, id);
-        Object.assign(get(db.appointments, bid, saved.id), { endsAt });
-        return { ...saved, endsAt };
+        // Keep the checked write synchronous so simultaneous demo submissions cannot interleave.
+        const row: Appointment = previous ?? { ...input, id: crypto.randomUUID(), businessId: bid, endsAt };
+        Object.assign(row, input, { id: row.id, businessId: bid, endsAt });
+        if (!previous) db.appointments.push(row);
+        return structuredClone(row);
       },
       async setStatus(bid, id, status) { await pause(); const row = get(db.appointments, bid, id); if (row.status === 'cancelled') throw new ApiError('error.cancelled', 422); row.status = status; return structuredClone(row); },
     },
@@ -68,9 +75,9 @@ export function createMockApi(delay = 180): Api {
       async search(bid, search, page) { await pause(); tenant(bid); const rows = db.customers.filter(c => c.businessId === bid && `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => b.createdAt.localeCompare(a.createdAt)); return { data: structuredClone(rows.slice((page - 1) * 6, page * 6)), meta: { currentPage: page, perPage: 6, total: rows.length, lastPage: Math.max(1, Math.ceil(rows.length / 6)) } }; },
     },
     services: resource<Service, ServiceInput>(db.services), staff: resource<StaffMember, StaffInput>(db.staff),
-    business: { async save(bid: string, input: Business) { await pause(); tenant(bid); const b = business(bid); Object.assign(b, structuredClone(input), { id: bid }); return structuredClone(b); } },
+    business: { async save(bid: string, input: Business) { await pause(); tenant(bid); const b = business(bid); Object.assign(b, structuredClone(input), { id: bid }); if (session) session.businesses = structuredClone(db.businesses); return structuredClone(b); } },
     auth: {
-      async login(email, password) { await pause(); if (email !== 'demo@acm.example' || password !== 'Demo1234!') throw new ApiError('error.credentials', 401); session = { user: { id: 'demo-user', name: 'Zia Parsa', email, businessId: db.businesses[0].id }, businesses: structuredClone(db.businesses), activeBusinessId: db.businesses[0].id }; return structuredClone(session); },
+      async login(email, password) { await pause(); if (email !== 'demo@acm.example' || password !== 'Demo1234!') throw new ApiError('error.credentials', 401); initializeFixtures(); session = { user: { id: 'demo-user', name: 'Zia Parsa', email, businessId: db.businesses[0].id }, businesses: structuredClone(db.businesses), activeBusinessId: db.businesses[0].id }; return structuredClone(session); },
       async signup() { await pause(); throw new ApiError('auth.signupUnavailable', 501); },
       async forgotPassword() { await pause(); throw new ApiError('auth.resetUnavailable', 501); },
       async session() { await pause(); if (!session) throw new ApiError('error.unauthenticated', 401); return structuredClone(session); },
