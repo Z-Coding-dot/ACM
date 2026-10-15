@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers';
 import AxeBuilder from '@axe-core/playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import en from '../src/i18n/locales/en.json' with { type: 'json' };
@@ -18,13 +19,13 @@ test('public homepage, account links and information routes work without authent
   await page.locator('.public-auth').getByRole('link', { name: 'Get started' }).click(); await expect(page).toHaveURL(/\/signup$/); await expect(page.locator('h1')).toHaveText('Create an account');
   await page.goto('/'); await page.locator('.landing-hero').getByRole('link', { name: 'Sign in', exact: true }).click(); await expect(page).toHaveURL(/\/login$/); await expect(page.locator('h1')).toHaveText('Welcome back');
   await page.goto('/'); await page.getByRole('link', { name: 'Product information', exact: true }).click(); await expect(page.locator('h1')).toHaveText(en['public.title']);
-  await page.goto('/'); await page.getByRole('link', { name: 'Demo & data', exact: true }).click(); await expect(page).toHaveURL(/\/about#data$/); await expect(page.locator('#data')).toBeInViewport(); await expect(page.locator('#data')).toBeFocused();
+  await page.goto('/'); await page.getByRole('link', { name: en['landing.dataInfo'], exact: true }).click(); await expect(page).toHaveURL(/\/about#data$/); await expect(page.locator('#data')).toBeInViewport(); await expect(page.locator('#data')).toBeFocused();
   await page.goto('/'); await page.locator('.public-sections').getByRole('link', { name: 'Features', exact: true }).click(); await expect(page.locator('#features')).toBeInViewport(); await expect(page.locator('#features')).toBeFocused();
   await page.goto('/'); await expect(page.locator('h1')).toBeVisible(); await page.keyboard.press('Tab'); await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused(); await expect(page.getByRole('link', { name: 'Skip to content' })).toHaveCSS('outline-width', '2px'); await page.keyboard.press('Enter'); await expect(page.locator('#public-main')).toBeFocused();
 });
 
 test('signed-in visitors keep the homepage and can return to their dashboard', async ({ page }) => {
-  await page.goto('/login'); await page.getByRole('button', { name: 'Explore demo workspace' }).click(); await expect(page.locator('main h1')).toHaveText('Your day, at a glance');
+  await login(page); await expect(page.locator('main h1')).toHaveText('Your day, at a glance');
   await page.getByRole('button', { name: 'Account menu' }).click(); await page.getByRole('dialog').getByRole('link', { name: 'Back to homepage' }).click();
   await expect(page.locator('h1')).toContainText(en['landing.heroTitle']); await expect(page.locator('.public-auth').getByRole('link', { name: 'Open dashboard' })).toHaveAttribute('href', '/app/overview');
   await expect(page.locator('.public-auth')).toContainText('Zia Parsa'); await expect(page.locator('.public-auth').getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0);
@@ -63,8 +64,8 @@ test('mobile menu handles focus, navigation, signed-in identity and reduced moti
   await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto'); const menu = page.getByRole('button', { name: 'Menu', exact: true }); await menu.click();
   const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible(); const audit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze(); expect(audit.violations).toEqual([]);
   await page.keyboard.press('Escape'); await expect(menu).toBeFocused(); await expect(menu).toHaveAttribute('aria-expanded', 'false');
-  await menu.click(); await dialog.getByRole('link', { name: 'Demo & data', exact: true }).click(); await expect(page.locator('#data')).toBeInViewport(); await expect(dialog).toHaveCount(0);
-  await page.goto('/login'); await page.getByRole('button', { name: 'Explore demo workspace' }).click(); await expect(page.locator('main h1')).toHaveText('Your day, at a glance');
+  await menu.click(); await dialog.getByRole('link', { name: en['landing.dataInfo'], exact: true }).click(); await expect(page.locator('#data')).toBeInViewport(); await expect(dialog).toHaveCount(0);
+  await login(page); await expect(page.locator('main h1')).toHaveText('Your day, at a glance');
   await page.evaluate(() => { history.pushState({}, '', '/'); window.dispatchEvent(new PopStateEvent('popstate')); }); await expect(page.locator('.public-auth')).toContainText('Zia Parsa'); expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
   await page.getByRole('button', { name: 'Menu', exact: true }).click(); await page.getByRole('dialog').getByRole('link', { name: 'Open dashboard' }).click(); await expect(page.locator('main h1')).toHaveText('Your day, at a glance');
 });
@@ -72,7 +73,7 @@ test('mobile menu handles focus, navigation, signed-in identity and reduced moti
 test('auth redesign validates controls, Google availability and all public widths in both languages', async ({ page }) => {
   test.setTimeout(240000); const results: { label: string; violations: unknown[] }[] = [];
   await page.goto('/login'); const password = page.getByLabel('Password', { exact: true }); await password.fill('Password123!'); await page.getByRole('button', { name: 'Show password' }).click(); await expect(password).toHaveAttribute('type', 'text'); await expect(password).toHaveValue('Password123!'); await page.getByRole('button', { name: 'Hide password' }).click(); await expect(password).toHaveAttribute('type', 'password'); await page.getByRole('checkbox', { name: 'Remember me' }).check(); await expect(page.getByRole('checkbox', { name: 'Remember me' })).toBeChecked();
-  await page.goto('/signup'); await page.getByRole('button', { name: 'Continue with Google' }).click(); await expect(page.getByRole('alert')).toContainText('Google sign-in is not connected'); await expect(page).toHaveURL(/\/signup$/);
+  await page.goto('/signup'); await page.getByRole('button', { name: 'Continue with Google' }).click(); await expect(page.getByRole('alert')).toContainText('Google sign-in is not connected'); await expect(page).toHaveURL(/\/login\?oauth=unavailable$/);
   for (const [language, messages] of [['en', en], ['fa-AF', fa]] as const) for (const width of [320, 390, 768, 1440]) for (const path of ['/login', '/signup']) {
     await page.setViewportSize({ width, height: 960 }); await page.goto(path); await expect(page.locator('h1')).toBeVisible();
     if (language === 'fa-AF') { await page.getByRole('button', { name: 'Change language' }).click(); await page.getByRole('menuitemradio', { name: 'دری' }).click(); await expect(page.getByRole('menu')).toHaveCount(0); }

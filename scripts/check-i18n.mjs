@@ -5,6 +5,7 @@ const errors = [];
 for (const key of new Set(locales.flatMap(locale => Object.keys(locale)))) {
   for (let i = 0; i < locales.length; i++) if (typeof locales[i][key] !== 'string' || !locales[i][key].trim()) errors.push(`${['en', 'fa-AF'][i]}: missing ${key}`);
   if (locales.every(locale => locale[key])) {
+    for (let i = 0; i < locales.length; i++) if (/\?{2,}|\uFFFD/.test(locales[i][key])) errors.push(`Invalid text encoding in ${['en', 'fa-AF'][i]}: ${key}`);
     const variables = text => [...text.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]).sort().join(',');
     if (variables(locales[0][key]) !== variables(locales[1][key])) errors.push(`Interpolation mismatch: ${key}`);
   }

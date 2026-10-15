@@ -5,7 +5,7 @@ const existing = await readFile('backend/.env', 'utf8').catch(() => '');
 const values = Object.fromEntries(existing.split(/\r?\n/).filter(line => /^[A-Z_]+=/.test(line)).map(line => { const index = line.indexOf('='); return [line.slice(0, index), line.slice(index + 1)]; }));
 let environment = await readFile('backend/.env.example', 'utf8');
 for (const key of ['APP_KEY', 'DB_PASSWORD', 'MYSQL_ROOT_PASSWORD', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET']) {
-  const value = values[key] || (['DB_PASSWORD', 'MYSQL_ROOT_PASSWORD'].includes(key) ? randomBytes(32).toString('hex') : '');
+  const value = values[key] || (key === 'APP_KEY' ? `base64:${randomBytes(32).toString('base64')}` : ['DB_PASSWORD', 'MYSQL_ROOT_PASSWORD'].includes(key) ? randomBytes(32).toString('hex') : '');
   environment = environment.replace(new RegExp(`^${key}=.*$`, 'm'), `${key}=${value}`);
 }
 await writeFile('backend/.env', environment, { mode: 0o600 });

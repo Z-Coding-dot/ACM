@@ -6,3 +6,5 @@ test-results/
 *.tsbuildinfo
 .env.local
 .env.production.local
+deploy/.env
+deploy/backups/

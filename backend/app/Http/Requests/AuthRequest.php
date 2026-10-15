@@ -28,8 +28,8 @@ class AuthRequest extends FormRequest
         }];
 
         return match ($this->route()->getName()) {
-            'auth.signup' => ['name' => ['required', 'string', 'max:160'], 'email' => ['bail', 'required', 'string', 'email', 'max:254', Rule::unique('users')], 'password' => [...$password, 'confirmed'], 'locale' => ['bail', 'sometimes', 'string', Rule::in(['en', 'fa-AF'])]],
-            'auth.login' => ['email' => ['required', 'email', 'max:254'], 'password' => ['required', 'string', 'max:256'], 'remember' => ['sometimes', 'boolean']],
+            'auth.signup' => ['name' => ['required', 'string', 'max:160'], 'email' => ['bail', 'required', 'string', 'email', 'max:254', Rule::unique('users')], 'password' => [...$password, 'confirmed'], 'returnTo' => ['sometimes', 'nullable', 'string', 'max:2048'], 'locale' => ['bail', 'sometimes', 'string', Rule::in(['en', 'fa-AF'])]],
+            'auth.login' => ['email' => ['bail', 'required', 'string', 'email', 'max:254'], 'password' => ['required', 'string', 'max:256'], 'remember' => ['sometimes', 'boolean'], 'returnTo' => ['sometimes', 'nullable', 'string', 'max:2048']],
             'auth.reset' => ['email' => ['required', 'email', 'max:254'], 'token' => ['required', 'string', 'max:256'], 'password' => [...$password, 'confirmed']],
             'auth.account' => ['name' => ['required', 'string', 'max:160'], 'email' => ['required', 'email', 'max:254', Rule::unique('users')->ignore($this->user()->id)], 'currentPassword' => ['sometimes', 'nullable', 'string', 'max:256']],
             default => ['email' => ['required', 'email', 'max:254']],

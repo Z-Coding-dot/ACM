@@ -1,8 +1,8 @@
-import type { Api, Resource } from '../contracts';
-import type { Business, Customer, CustomerInput, Service, ServiceInput, StaffMember, StaffInput, Appointment, AppointmentInput, Session } from '../../types/domain';
-import { ApiError } from '../errors';
+import type { Api, Resource } from '../services/contracts';
+import type { Business, Customer, CustomerInput, Service, ServiceInput, StaffMember, StaffInput, Appointment, AppointmentInput, Session } from '../types/domain';
+import { ApiError } from '../services/errors';
 import { createFixtures } from './fixtures';
-import { dateInZone, dayOfWeek, minutes, clockTime, zonedTimestamp } from '../../lib/dates';
+import { dateInZone, dayOfWeek, minutes, clockTime, zonedTimestamp } from '../lib/dates';
 
 export function createMockApi(delay = 180): Api {
   const db: ReturnType<typeof createFixtures> = { businesses: [], customers: [], services: [], staff: [], appointments: [] };
@@ -21,6 +21,7 @@ export function createMockApi(delay = 180): Api {
       async list(bid) { await pause(); tenant(bid); return structuredClone(rows.filter(r => r.businessId === bid)); },
       async get(bid, id) { await pause(); return structuredClone(get(rows, bid, id)); },
       async save(bid, input, id) { await pause(); tenant(bid); const row = id ? get(rows, bid, id) : { ...defaults(), id: crypto.randomUUID(), businessId: bid } as T; Object.assign(row, input, { id: row.id, businessId: bid }); if (!id) rows.push(row); return structuredClone(row); },
+      async archive() { throw new ApiError('error.generic', 501); },
     };
   }
   const appointments = resource<Appointment, AppointmentInput>(db.appointments);
@@ -49,8 +50,11 @@ export function createMockApi(delay = 180): Api {
     return result;
   }
   return {
+    memberships: { async list() { return []; }, async add() { throw new ApiError('error.generic', 501); }, async setRole() { throw new ApiError('error.generic', 501); }, async remove() { throw new ApiError('error.generic', 501); } },
+    async dashboard() { throw new ApiError('error.generic', 501); },
     appointments: {
       ...appointments,
+      async page() { throw new ApiError('error.generic', 501); },
       async search(bid, f) { const b = business(bid); const all = await appointments.list(bid); return all.filter(a => (!f.status || a.status === f.status) && (!f.staffId || a.staffId === f.staffId) && (!f.from || dateInZone(a.startsAt, b.timeZone) >= f.from) && (!f.to || dateInZone(a.startsAt, b.timeZone) <= f.to) && (!f.search || [get(db.customers, bid, a.customerId).name, get(db.services, bid, a.serviceId).name].join(' ').toLowerCase().includes(f.search.toLowerCase()))).sort((a, b) => a.startsAt.localeCompare(b.startsAt)); },
       async availability(bid, sid, staffId, date, exclude) { await pause(); return available(bid, sid, staffId, date, exclude); },
       async save(bid, input, id) {

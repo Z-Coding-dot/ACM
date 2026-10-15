@@ -1,0 +1,6 @@
+{$ACM_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy web:80
+    header Strict-Transport-Security "max-age=31536000"
+    # Access logging is intentionally disabled: authentication links contain tokens.
+}

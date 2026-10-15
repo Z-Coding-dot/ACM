@@ -14,7 +14,7 @@ describe('Laravel-ready HTTP boundary', () => {
     expect(localStorage.getItem('password')).toBeNull();
   });
   it('sends cookie credentials, tenant context, CSRF and typed JSON through one client', async () => {
-    document.cookie = 'XSRF-TOKEN=csrf%20value'; const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: 'a' } }), { status: 200 })); vi.stubGlobal('fetch', fetcher);
+    document.cookie = 'XSRF-TOKEN=csrf%20value'; const fetcher = vi.fn().mockImplementation(url => Promise.resolve(url === '/sanctum/csrf-cookie' ? new Response(null, { status: 204 }) : new Response(JSON.stringify({ data: { id: 'a' } }), { status: 200 }))); vi.stubGlobal('fetch', fetcher);
     await appointmentService(createHttpClient('/api/v1/')).save('b', { customerId: 'c', serviceId: 's', staffId: null, startsAt: '2026-10-15T09:00:00Z', status: 'scheduled', notes: '' });
     expect(fetcher).toHaveBeenCalledWith('/api/v1/appointments', expect.objectContaining({ credentials: 'include', method: 'POST', headers: expect.objectContaining({ 'X-Business-ID': 'b', 'X-XSRF-TOKEN': 'csrf value' }) }));
     document.cookie = 'XSRF-TOKEN=; Max-Age=0';

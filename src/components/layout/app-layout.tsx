@@ -16,7 +16,6 @@ import { navigation } from "../../config/navigation";
 import { useWorkspace } from "../../app/workspace";
 import { Button, Dialog, ErrorState } from "../ui/primitives";
 import { LanguageDropdown } from "../ui/language-dropdown";
-import { isDemo } from "../../services";
 import { PwaControls } from "./pwa-controls";
 import { BrandMark } from "../ui/brand";
 import { motion, useReducedMotion } from "framer-motion";
@@ -98,18 +97,19 @@ export function AppLayout() {
         </div>
         <nav aria-label={t("nav.main")}>{nav.map(renderLink)}</nav>
         <div className="sidebar-bottom">
-          {isDemo && (
-            <div className="demo-card">
-              <span className="demo-pill">{t("demo.label")}</span>
+          {workspace.session!.businesses.length > 1 && (
+            <div className="workspace-switcher">
+              
               <p>{t(workspace.industry.guidance)}</p>
-              <label htmlFor="demo-workspace">{t("demo.workspace")}</label>
+              <label htmlFor="business-workspace">{t("onboarding.existing")}</label>
               <select
-                id="demo-workspace"
+                id="business-workspace"
                 className="input"
                 value={workspace.business.id}
+                disabled={workspace.switching}
                 onChange={(e) => {
-                  void workspace.switchBusiness(e.target.value).catch(setError);
-                  navigate("/app/overview");
+                  if (e.target.value === workspace.business.id) return;
+                  void workspace.switchBusiness(e.target.value).then(() => navigate("/app/overview")).catch(setError);
                 }}>
                 {workspace.session!.businesses.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -149,7 +149,7 @@ export function AppLayout() {
             </div>
           </div>
           <div className="header-actions">
-            <LanguageDropdown />
+            <LanguageDropdown disabled={workspace.switching} />
             <button
               className="account-button"
               aria-label={t("account.menu")}
@@ -167,12 +167,6 @@ export function AppLayout() {
             </button>
           </div>
         </header>
-        {isDemo && (
-          <div className="demo-banner">
-            <span className="status-dot" />
-            {t("demo.notice")}
-          </div>
-        )}
         {!online && (
           <div className="notice notice-error offline-banner" role="status">
             <WifiOff size={17} />
@@ -187,10 +181,13 @@ export function AppLayout() {
           animate={{ y: 0 }}
           transition={uiSpring}
           tabIndex={-1}
+          inert={workspace.switching}
+          aria-busy={workspace.switching}
           data-route={location.pathname}
         >
           <Outlet />
         </motion.main>
+        {!!error && !account && <ErrorState error={error} />}
         <PwaControls />
       </div>
       <nav className="mobile-navigation" aria-label={t("nav.main")}>
@@ -209,17 +206,16 @@ export function AppLayout() {
           <nav className="more-navigation">
             {nav.filter((n) => !n.mobile).map(renderLink)}
           </nav>
-          {isDemo && (
+          {workspace.session!.businesses.length > 1 && (
             <div className="field">
-              <label htmlFor="mobile-workspace">{t("demo.workspace")}</label>
+              <label htmlFor="mobile-workspace">{t("onboarding.existing")}</label>
               <select
                 id="mobile-workspace"
                 className="input"
                 value={workspace.business.id}
+                disabled={workspace.switching}
                 onChange={(e) => {
-                  void workspace.switchBusiness(e.target.value).catch(setError);
-                  setMore(false);
-                  navigate("/app/overview");
+                  void workspace.switchBusiness(e.target.value).then(() => { setMore(false); navigate("/app/overview"); }).catch(setError);
                 }}
               >
                 {workspace.session!.businesses.map((b) => (
@@ -247,6 +243,7 @@ export function AppLayout() {
             <span dir="ltr">{workspace.session!.user.email}</span>
           </div>
           <div className="stack">
+            <Link className="button button-secondary" to="/onboarding" onClick={() => setAccount(false)}>{t("onboarding.title")}</Link>
             <Link className="button button-secondary" to="/" onClick={() => setAccount(false)}>
               {t("landing.backHome")}
             </Link>
