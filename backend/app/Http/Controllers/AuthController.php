@@ -36,6 +36,7 @@ class AuthController extends Controller
         }
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
+        $request->session()->put('auth.returnTo', \App\Services\ReturnDestination::safe($request->input('returnTo')));
         $sent = $this->sendVerification($user);
 
         return response()->json([...$this->profiles->for($user), 'verificationEmailSent' => $sent], 201);
@@ -47,6 +48,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
         $request->session()->regenerate();
+        $request->session()->put('auth.returnTo', \App\Services\ReturnDestination::safe($request->input('returnTo')));
 
         return $this->session($request);
     }
@@ -113,7 +115,9 @@ class AuthController extends Controller
             event(new Verified($request->user()));
         }
 
-        return redirect(config('acm.frontend_url').'/onboarding');
+        $destination = \App\Services\ReturnDestination::safe($request->session()->pull('auth.returnTo'));
+        $path = $request->user()->memberships()->exists() ? $destination : '/onboarding'.($destination === '/app/overview' ? '' : '?'.http_build_query(['returnTo' => $destination]));
+        return redirect(config('acm.frontend_url').$path);
     }
 
     public function account(AuthRequest $request)
@@ -127,7 +131,7 @@ class AuthController extends Controller
         if ($changed) {
             $user->email_verified_at = null;
         }
-        $user->save();
+        try { $user->save(); } catch (UniqueConstraintViolationException) { throw ValidationException::withMessages(['email'=>['validation.emailTaken']]); }
         $sent = $changed ? $this->sendVerification($user) : null;
 
         return response()->json([...$this->profiles->for($user), 'verificationEmailSent' => $sent]);

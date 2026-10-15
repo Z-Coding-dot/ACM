@@ -1,0 +1,29 @@
+import { expect, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { createFixtures } from '../src/test/fixtures';
+export interface BrowserFixture { email: string; password: string; ids: Record<string, string> }
+export function createBrowserFixture(): BrowserFixture {
+  const email = `browser-${randomUUID()}@example.test`, password = `Test-${randomUUID()}!`;
+  const directory = resolve('backend/storage/framework/testing'); mkdirSync(directory, { recursive: true });
+  const file = resolve(directory, `browser-${randomUUID()}.json`);
+  try {
+    writeFileSync(file, JSON.stringify({ email, password, fixtures: createFixtures() }), { mode: 0o600 });
+    const output = execFileSync('php', [resolve('backend/tests/Support/browser-fixture.php'), file], { cwd: resolve('backend'), encoding: 'utf8', timeout: 30000 });
+    return { email, password, ...JSON.parse(output) };
+  } finally { unlinkSync(file); }
+}
+export async function login(page: Page, fixture = createBrowserFixture()) {
+  await page.goto('/login');
+  await signIn(page, fixture);
+  return fixture;
+}
+export async function signIn(page: Page, fixture: BrowserFixture) {
+  await page.getByLabel('Email address', { exact: true }).fill(fixture.email); await page.getByLabel('Password', { exact: true }).fill(fixture.password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.locator('main h1')).toBeVisible();
+  await expect(page).toHaveURL(/\/app\//);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+}

@@ -8,9 +8,10 @@ import { PageHeading, Button, Loading, ErrorState, EmptyState, StatusBadge } fro
 import { addDays, clockTime, dateInZone, dayOfWeek, formatDate, formatTime, minutes, timeInZone, todayInZone, zonedTimestamp } from '../../lib/dates';
 import type { Appointment } from '../../types/domain';
 export function CalendarPage() {
-  const { t } = useTranslation(); const { business, locale } = useWorkspace(); const data = useResources(); const [date, setDate] = useState(todayInZone(business.timeZone)), [view, setView] = useState<'day' | 'week' | 'list'>('week');
+  const { t } = useTranslation(); const { business, locale, can } = useWorkspace(); const [date, setDate] = useState(todayInZone(business.timeZone)), [view, setView] = useState<'day' | 'week' | 'list'>('week');
   const [range, setRange] = useState<'day' | 'week'>('week');
   const days = range === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(date, -dayOfWeek(date) + i)) : [date];
+  const data = useResources({ from: days[0], to: days[days.length - 1] });
   const all = data.appointments.filter(a => days.includes(dateInZone(a.startsAt, business.timeZone))).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const openHours = business.hours.filter(h => !h.closed);
   const gridStep = business.appointmentSettings.slotMinutes * Math.ceil(30 / business.appointmentSettings.slotMinutes);
@@ -19,15 +20,15 @@ export function CalendarPage() {
   const times = Array.from({ length: Math.ceil((endMinute - startMinute) / gridStep) }, (_, i) => startMinute + i * gridStep);
   function slotAvailable(day: string, minute: number) {
     const h = business.hours.find(h => h.day === dayOfWeek(day));
-    if (!h || h.closed || minute < minutes(h.open) || minute + business.appointmentSettings.slotMinutes > minutes(h.close)) return false;
+    if (!can('appointments.write') || !h || h.closed || minute < minutes(h.open) || minute + business.appointmentSettings.slotMinutes > minutes(h.close)) return false;
     let ts: string;
     try { ts = zonedTimestamp(day, clockTime(minute), business.timeZone); } catch { return false; }
-    if (new Date(ts).getTime() <= Date.now()) return false;
+    if (new Date(ts).getTime() <= Date.now() || (h.breaks ?? []).some(b => clockTime(minute) >= b.open && clockTime(minute) < b.close)) return false;
     const end = new Date(new Date(ts).getTime() + business.appointmentSettings.slotMinutes * 60000).toISOString();
     return (business.appointmentSettings.allowUnassigned ? [null, ...data.staff.filter(s => s.active)] : data.staff.filter(s => s.active)).some(s => {
       const sh = s?.hours.find(h => h.day === dayOfWeek(day));
       const alignedStart = Math.max(minutes(h.open), sh ? minutes(sh.open) : 0);
-      return (minute - alignedStart) % business.appointmentSettings.slotMinutes === 0 && (!s || (s.serviceIds.some(id => data.services.some(service => service.id === id && service.active)) && sh && !sh.closed && minute >= minutes(sh.open) && minute + business.appointmentSettings.slotMinutes <= minutes(sh.close))) && !data.appointments.some(a => a.staffId === (s?.id ?? null) && !['cancelled', 'no-show'].includes(a.status) && a.startsAt < end && a.endsAt > ts);
+      return (minute - alignedStart) % business.appointmentSettings.slotMinutes === 0 && (!s || (!(sh?.breaks ?? []).some(b => clockTime(minute) >= b.open && clockTime(minute) < b.close) && s.serviceIds.some(id => data.services.some(service => service.id === id && service.active)) && sh && !sh.closed && minute >= minutes(sh.open) && minute + business.appointmentSettings.slotMinutes <= minutes(sh.close))) && !data.appointments.some(a => a.staffId === (s?.id ?? null) && !['cancelled', 'no-show'].includes(a.status) && a.startsAt < end && a.endsAt > ts);
     });
   }
   function listSlots(day: string) {
@@ -40,15 +41,15 @@ export function CalendarPage() {
   function event(a: Appointment, visual = false, lane = 0, laneCount = 1) {
     const start = minutes(timeInZone(a.startsAt, business.timeZone));
     const duration = (new Date(a.endsAt).getTime() - new Date(a.startsAt).getTime()) / 60000;
-    const customer = data.customers.find(c => c.id === a.customerId)?.name;
-    const time = formatTime(a.startsAt, locale, business.timeZone), service = data.services.find(s => s.id === a.serviceId)?.name;
-    const staff = data.staff.find(s => s.id === a.staffId)?.name ?? t('common.unassigned'), status = t(`status.${a.status}`);
+    const customer = a.customerName ?? data.customers.find(c => c.id === a.customerId)?.name;
+    const time = formatTime(a.startsAt, locale, business.timeZone), service = a.serviceName ?? data.services.find(s => s.id === a.serviceId)?.name;
+    const staff = a.staffName ?? data.staff.find(s => s.id === a.staffId)?.name ?? t('common.unassigned'), status = t(`status.${a.status}`);
     const summary = [customer, time, service, staff, status].join(' · ');
     return <Link key={a.id} to={`/app/appointments/${a.id}`} className={`calendar-event event-${a.status}`} title={visual ? summary : undefined} aria-label={visual ? summary : undefined} style={visual ? { top: `${(start - startMinute) * 2}px`, height: `${Math.max(duration * 2 - 3, 44)}px`, insetInlineStart: `calc(${100 * lane / laneCount}% + ${44 * (1 - lane / laneCount) + 3}px)`, width: `calc(${100 / laneCount}% - ${44 / laneCount + 6}px)` } : undefined}>
       <strong>{customer}</strong><span><bdi>{time}</bdi>{!visual && ` · ${service}`}</span>{!visual && <><small>{staff}</small><span className="event-status">{status}</span></>}
     </Link>;
   }
-  return <><PageHeading title={t('nav.calendar')} description={t('calendar.subtitle')} actions={<Link className="button button-primary" to="/app/appointments/new"><Plus size={17} />{t('appointment.new')}</Link>} />
+  return <><PageHeading title={t('nav.calendar')} description={t('calendar.subtitle')} actions={can('appointments.write') && <Link className="button button-primary" to="/app/appointments/new"><Plus size={17} />{t('appointment.new')}</Link>} />
     <div className="calendar-toolbar"><div className="calendar-date-controls"><Button variant="secondary" aria-label={t('calendar.previous')} onClick={() => setDate(addDays(date, range === 'week' ? -7 : -1))}><ChevronLeft size={18} className="directional" /></Button><Button variant="secondary" onClick={() => setDate(todayInZone(business.timeZone))}>{t('calendar.today')}</Button><Button variant="secondary" aria-label={t('calendar.next')} onClick={() => setDate(addDays(date, range === 'week' ? 7 : 1))}><ChevronRight size={18} className="directional" /></Button><label><span className="sr-only">{t('appointment.date')}</span><input className="input" type="date" dir="ltr" value={date} onChange={e => { if (e.target.value) setDate(e.target.value); }} /></label></div><div className="segmented-control" role="group" aria-label={t('calendar.view')}>{(['day', 'week', 'list'] as const).map(v => <button key={v} aria-pressed={view === v} onClick={() => { setView(v); if (v !== 'list') setRange(v); }}>{t(`calendar.${v}`)}</button>)}</div></div>
     <p className="calendar-period">{formatDate(days[0], locale, business.timeZone)}{days.length > 1 && ` – ${formatDate(days[6], locale, business.timeZone)}`}<small>{t('appointment.timezone', { zone: business.timeZone })}</small></p>
     {data.loading ? <Loading /> : data.error ? <ErrorState error={data.error} retry={data.retry} /> : <>

@@ -20,7 +20,8 @@ export function createHttpClient(baseUrl: string, timeoutMs = 15000): HttpClient
           const data = await response.json().catch(() => ({}));
           const keys: Record<number, string> = { 401: path === '/auth/login' ? 'error.loginCredentials' : 'error.unauthenticated', 403: 'error.forbidden', 404: 'error.notFound', 409: 'error.conflict', 419: 'error.sessionExpired', 422: 'error.validation', 429: 'error.rateLimit' };
           if ([401, 419].includes(response.status) && !['/auth/login', '/auth/signup', '/auth/forgot-password'].includes(path) && (path !== '/auth/session' || response.status === 419)) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
-          throw new ApiError(keys[response.status] || 'error.generic', response.status, data?.errors && typeof data.errors === 'object' ? data.errors : {});
+          const code = ['error.planLimit', 'error.bookedRecord', 'error.scheduleInUse'].includes(data?.code) ? data.code : keys[response.status] || 'error.generic';
+          throw new ApiError(code, response.status, data?.errors && typeof data.errors === 'object' ? data.errors : {});
         }
         if (response.status === 204) return undefined as T;
         try { return await response.json() as T; } catch { throw new ApiError('error.invalidResponse', 502); }

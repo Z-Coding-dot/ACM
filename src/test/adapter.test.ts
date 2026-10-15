@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockApi } from './adapter';
-import type { Api } from '../contracts';
-import { ApiError } from '../errors';
+import type { Api } from '../services/contracts';
+import { ApiError } from '../services/errors';
 describe('demo adapter contract', () => {
   let api: Api;
   let customerId: string;

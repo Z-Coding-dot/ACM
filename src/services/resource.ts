@@ -15,6 +15,7 @@ export function apiResource<T, I>(client: HttpClient, path: string): Resource<T,
       }
     },
     async get(businessId, id) { return (await client.request<{ data: T }>(`${path}/${encodeURIComponent(id)}`, { businessId })).data; },
-    async save(businessId, body, id) { return (await client.request<{ data: T }>(`${path}${id ? `/${encodeURIComponent(id)}` : ''}`, { method: id ? 'PATCH' : 'POST', body, businessId })).data; },
+    async save(businessId, body, id) { await client.csrf(); return (await client.request<{ data: T }>(`${path}${id ? `/${encodeURIComponent(id)}` : ''}`, { method: id ? 'PATCH' : 'POST', body, businessId })).data; },
+    async archive(businessId, id) { await client.csrf(); await client.request<void>(`${path}/${encodeURIComponent(id)}`, { method: 'DELETE', businessId }); },
   };
 }

@@ -21,9 +21,9 @@ describe('public product pages', () => {
     expect(screen.getAllByRole('link', { name: 'Open dashboard' }).every(link => link.getAttribute('href') === '/app/overview')).toBe(true);
     expect(screen.getAllByRole('link', { name: "Open Zia Parsa's dashboard" })).toHaveLength(2);
   });
-  it('renders translated Dari content and the development limits information', async () => {
+  it('renders translated Dari content and account/data information', async () => {
     await i18n.changeLanguage('fa-AF'); render(<MemoryRouter><ProductInfoPage /></MemoryRouter>);
-    expect(document.documentElement).toHaveAttribute('dir', 'rtl'); expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('درباره این پیش‌نمایش برنامه');
-    expect(screen.getByRole('heading', { name: 'معلومات نمونه و تغییرات' })).toBeVisible();
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl'); expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('دربارهٔ ACM');
+    expect(screen.getByRole('heading', { name: 'معلومات کسب‌وکار' })).toBeVisible();
   });
 });

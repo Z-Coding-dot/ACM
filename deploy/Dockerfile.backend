@@ -1,0 +1,21 @@
+FROM php:8.4-fpm-alpine AS base
+RUN apk add --no-cache icu-libs oniguruma \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev oniguruma-dev \
+    && docker-php-ext-install -j$(nproc) pdo_mysql mbstring intl opcache \
+    && apk del .build-deps
+WORKDIR /var/www/acm
+FROM base AS dependencies
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+RUN apk add --no-cache git unzip
+COPY backend/composer.json backend/composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts
+FROM base AS runtime
+COPY --chown=www-data:www-data backend/ ./
+COPY --from=dependencies --chown=www-data:www-data /var/www/acm/vendor/ ./vendor/
+COPY deploy/php.ini /usr/local/etc/php/conf.d/acm.ini
+COPY --chmod=755 deploy/backend-entrypoint.sh /usr/local/bin/acm-entrypoint
+RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
+USER www-data
+ENTRYPOINT ["acm-entrypoint"]
+CMD ["php-fpm", "--nodaemonize"]

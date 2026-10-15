@@ -38,8 +38,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' | 'forgot-password
       {!(mode === 'reset-password' && success) && <form noValidate onSubmit={handleSubmit(async values => {
         setError(null); setSuccess('');
         try {
-          if (mode === 'login') { await auth.login(values.email, values.password, remember); navigate(destination, { replace: true }); }
-          else if (mode === 'signup') { await auth.signup(values.name, values.email, values.password, values.confirmation); navigate(destination, { replace: true }); }
+          if (mode === 'login') { await auth.login(values.email, values.password, remember, destination); navigate(destination, { replace: true }); }
+          else if (mode === 'signup') { await auth.signup(values.name, values.email, values.password, values.confirmation, destination); navigate(destination, { replace: true }); }
           else if (mode === 'reset-password') { await auth.resetPassword(values.email, parameters.get('token') || '', values.password, values.confirmation); setSuccess('auth.passwordResetDone'); setVisiblePassword(false); }
           else { await api.auth.forgotPassword(values.email); setSuccess('auth.resetSent'); }
         } catch (failure) {

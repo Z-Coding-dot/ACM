@@ -9,8 +9,8 @@ export function authService(client: HttpClient): Api['auth'] {
     return value;
   }
   return {
-    login: async (email, password, remember = false) => profile(await write<Session>('/auth/login', { email, password, remember })),
-    signup: async (name, email, password, confirmation, locale = 'en') => profile(await write<Session>('/auth/signup', { name, email, password, password_confirmation: confirmation, locale })),
+    login: async (email, password, remember = false, returnTo) => profile(await write<Session>('/auth/login', { email, password, remember, returnTo })),
+    signup: async (name, email, password, confirmation, locale = 'en', returnTo) => profile(await write<Session>('/auth/signup', { name, email, password, password_confirmation: confirmation, locale, returnTo })),
     forgotPassword: email => write<void>('/auth/forgot-password', { email }),
     resetPassword: (email, token, password, confirmation) => write<void>('/auth/reset-password', { email, token, password, password_confirmation: confirmation }),
     resendVerification: () => write<void>('/auth/verification-notification'),

@@ -1,7 +1,7 @@
-import type { Business, Customer, Service, StaffMember, Appointment, Industry } from '../../types/domain';
-import { industries } from '../../config/industries';
-import { todayInZone, addDays, zonedTimestamp, dayOfWeek } from '../../lib/dates';
-import { defaultHours } from '../../config/hours';
+import type { Business, Customer, Service, StaffMember, Appointment, Industry } from '../types/domain';
+import { industries } from '../config/industries';
+import { todayInZone, addDays, zonedTimestamp, dayOfWeek } from '../lib/dates';
+import { defaultHours } from '../config/hours';
 const workspaceDefinitions: { id: string; name: string; industry: Industry; services: [string, string, number, number][] }[] = [
   { id: 'demo-salon', name: 'Olive Studio', industry: 'salon', services: [['Haircut & styling', 'A tailored cut and finish.', 45, 180000], ['Beard grooming', 'Shape, trim and finish.', 30, 90000], ['Colour consultation', 'Plan your next colour treatment.', 30, 75000]] },
   { id: 'demo-clinic', name: 'Mehr Health Center', industry: 'clinic', services: [['General appointment', 'A scheduled visit with a practitioner.', 30, 120000], ['Follow-up appointment', 'A scheduled follow-up visit.', 30, 80000], ['Initial appointment', 'Your first scheduled visit.', 60, 180000]] },

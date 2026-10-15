@@ -1,12 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-async function login(page: Page) { await page.goto('/login'); await page.getByRole('button', { name: 'Explore demo workspace' }).click(); await expect(page.getByRole('heading', { name: 'Your day, at a glance' })).toBeVisible(); }
+import { login } from './helpers';
 async function route(page: Page, path: string) { await page.evaluate(path => { history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); }, path); if (path.startsWith('/app/')) await expect(page.locator('main')).toHaveAttribute('data-route', path); }
 async function nextWorkingDate(page: Page) { return page.evaluate(() => { const now = new Date(); now.setUTCDate(now.getUTCDate() + 2); if (now.getUTCDay() === 5) now.setUTCDate(now.getUTCDate() + 1); return now.toISOString().slice(0, 10); }); }
-test('authentication validates without fabricated email or signup success', async ({ page }) => {
+test('authentication validates inputs and uses the real reset request boundary', async ({ page }) => {
   await page.goto('/login'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByText('Enter a valid email address.')).toBeVisible();
   await page.getByRole('link', { name: 'New here? Create an account' }).click(); await expect(page.getByRole('heading', { name: 'Create an account' })).toBeVisible();
-  await page.getByLabel('Full name').fill('Test User'); await page.getByLabel('Email address').fill('test@example.com'); await page.getByLabel('Password', { exact: true }).fill('Password123!'); await page.getByRole('button', { name: 'Create an account', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('Account creation is unavailable');
-  await page.goto('/forgot-password'); await page.getByLabel('Email address').fill('test@example.com'); await page.getByRole('button', { name: 'Send reset link' }).click(); await expect(page.getByRole('alert')).toContainText('Demo mode cannot send email');
+  await page.getByLabel('Full name').fill('Test User'); await page.getByLabel('Email address').fill('validation@example.test'); await page.getByLabel('Password', { exact: true }).fill('Password123!'); await page.getByLabel('Confirm password').fill('Different123!'); await page.getByRole('button', { name: 'Create an account', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('The passwords must match');
+  await page.goto('/forgot-password'); await page.getByLabel('Email address').fill('unknown-' + Date.now() + '@example.test'); await page.getByRole('button', { name: 'Send reset link' }).click(); await expect(page.getByRole('status')).toContainText('If an account exists');
 });
 test('booking validates, adds a contact, reviews, reschedules, and confirms cancellation', async ({ page }) => {
   await login(page); await page.getByRole('link', { name: 'Book appointment', exact: true }).click(); await page.getByRole('button', { name: 'Review appointment' }).click(); await expect(page.getByText('This field is required.').first()).toBeVisible();
@@ -15,7 +15,7 @@ test('booking validates, adds a contact, reviews, reschedules, and confirms canc
   await page.getByLabel('Service', { exact: true }).selectOption({ index: 1 }); await page.getByLabel('Team member', { exact: true }).selectOption({ index: 1 }); await page.getByLabel('Date', { exact: true }).fill(await nextWorkingDate(page));
   await expect(page.getByLabel('Available time').locator('option')).not.toHaveCount(1); await page.getByLabel('Available time').selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Review appointment' }).click(); await expect(page.getByText('Booking Contact', { exact: true })).toBeVisible(); await page.getByRole('button', { name: 'Confirm booking' }).click();
-  await expect(page.getByRole('heading', { name: 'Appointment details' })).toBeVisible(); await expect(page.getByRole('status')).toContainText('demo session');
+  await expect(page.getByRole('heading', { name: 'Appointment details' })).toBeVisible(); await expect(page.getByRole('status')).toContainText('Appointment created.');
   await page.getByRole('button', { name: 'Mark confirmed' }).click(); await expect(page.locator('.page-actions')).toContainText('Confirmed');
   await page.getByRole('link', { name: 'Reschedule' }).click(); await page.getByLabel('Available time').selectOption({ index: 2 }); await page.getByRole('button', { name: 'Review appointment' }).click(); await page.getByRole('button', { name: 'Confirm booking' }).click(); await expect(page.getByRole('heading', { name: 'Appointment details' })).toBeVisible();
   await page.getByRole('button', { name: 'Cancel appointment', exact: true }).click(); await expect(page.getByRole('dialog')).toBeVisible(); await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click(); await expect(page.locator('.page-actions')).toContainText('Confirmed');
@@ -27,12 +27,12 @@ test('contacts search, pagination, editing, and empty states', async ({ page }) 
   await page.getByRole('textbox', { name: 'Search name, email, or phone' }).fill('Sara'); await page.getByRole('link', { name: 'Sara Ahmadi', exact: true }).click(); await page.getByRole('button', { name: 'Edit', exact: true }).click(); await page.getByLabel('Phone number', { exact: true }).fill('x'); await page.getByRole('button', { name: 'Save changes' }).click(); await expect(page.getByText('Enter a valid phone number.')).toBeVisible(); await page.getByLabel('Phone number', { exact: true }).fill('+93 700 888999'); await page.getByRole('button', { name: 'Save changes' }).click(); await expect(page.getByText('+93 700 888999', { exact: true })).toBeVisible();
 });
 test('navigation, tenant industries, services and staff are usable', async ({ page }) => {
-  await login(page);
+  const fixture = await login(page);
   for (const name of ['Calendar', 'Appointments', 'Customers', 'Services', 'Stylists', 'Settings']) {
     const link = page.locator('.sidebar nav').getByRole('link', { name, exact: true }); await link.click(); await expect(page.getByRole('heading', { name, exact: true })).toBeVisible(); await expect(link).toHaveAttribute('aria-current', 'page');
   }
-  await page.getByLabel('Switch demo workspace').selectOption('demo-clinic'); await expect(page.locator('.sidebar nav').getByRole('link', { name: 'Patients', exact: true })).toBeVisible(); await expect(page.locator('.sidebar nav').getByRole('link', { name: 'Practitioners', exact: true })).toBeVisible();
-  await page.getByLabel('Switch demo workspace').selectOption('demo-education'); await expect(page.locator('.sidebar nav').getByRole('link', { name: 'Students', exact: true })).toBeVisible();
+  await page.getByLabel('Choose an existing workspace').selectOption(fixture.ids['demo-clinic']); await expect(page.locator('.sidebar nav').getByRole('link', { name: 'Patients', exact: true })).toBeVisible(); await expect(page.locator('.sidebar nav').getByRole('link', { name: 'Practitioners', exact: true })).toBeVisible();
+  await page.getByLabel('Choose an existing workspace').selectOption(fixture.ids['demo-education']); await expect(page.locator('.sidebar nav').getByRole('link', { name: 'Students', exact: true })).toBeVisible();
   await route(page, '/app/services'); await page.getByRole('button', { name: 'Add service' }).click(); await page.getByLabel('Service name').fill('Extra session'); await page.getByLabel('Duration (minutes)').fill('45'); await page.getByLabel('Price (AFN)').fill('500'); await page.getByRole('button', { name: 'Save changes' }).click(); await expect(page.getByText('Extra session', { exact: true })).toBeVisible();
   await route(page, '/app/staff'); await page.getByRole('button', { name: 'Team profile' }).first().click(); await expect(page.getByRole('dialog').getByRole('heading', { name: 'Working hours' })).toBeVisible(); await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
   await route(page, '/app/appointments/missing'); await expect(page.getByRole('alert')).toContainText('could not be found');

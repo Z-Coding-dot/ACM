@@ -3,6 +3,18 @@
 @source not "../e2e";
 @source not "../scripts";
 @source not "../backend";
+
+.hours-day { border-block-end: 1px solid var(--border-subtle); padding-block: .35rem; }
+.hours-breaks { padding-inline-start: 1rem; }
+.hours-break-row { display: grid; grid-template-columns: 1fr minmax(75px, 1fr) minmax(75px, 1fr) auto; gap: .5rem; align-items: center; margin-block: .5rem; }
+.hours-break-row .input { min-width: 0; }
+.workspace-switcher { display: grid; gap: .5rem; padding: 1rem; }
+.plain-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.membership-row { display: flex; align-items: center; gap: 1rem; border-block-end: 1px solid var(--border-subtle); padding-block: 1rem; flex-wrap: wrap; }
+.membership-row > div { flex: 1; min-width: 160px; overflow-wrap: anywhere; }
+.membership-row small { display: block; }
+.membership-row select { width: auto; max-width: 100%; }
+.membership-list { padding: 1rem; }
 @source not "../test-results";
 @source not "../playwright-report";
 

@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\BusinessController;
 use Illuminate\Support\Facades\Route;
+Route::get('/health/ready', \App\Http\Controllers\HealthController::class)->withoutMiddleware('web');
 
 // Auth writes always use web/session/CSRF middleware, including non-SPA requests.
 Route::prefix('api/v1/auth')->group(function () {

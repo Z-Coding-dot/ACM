@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi } from 'vitest';
 import { AuthProvider, useAuth } from './workspace';
 import { SESSION_EXPIRED_EVENT } from '../services/http';
-vi.mock('../services', async () => { const { createMockApi } = await import('../services/mock/adapter'); return { api: createMockApi(0), isDemo: true }; });
+vi.mock('../services', async () => { const { createMockApi } = await import('../test/adapter'); return { api: createMockApi(0), isDemo: true }; });
 function Probe() { const auth = useAuth(); return <><span>{auth.session ? 'signed in' : 'signed out'}</span><button onClick={() => void auth.login('demo@acm.example', 'Demo1234!')}>Login</button></>; }
 describe('authenticated workspace lifecycle', () => {
   it('removes private query data and protected session state after expiration', async () => {

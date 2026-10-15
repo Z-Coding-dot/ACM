@@ -6,6 +6,12 @@ import { apiResource } from './resource';
 export function appointmentService(client: HttpClient): Api['appointments'] {
   const resource = apiResource<Appointment, AppointmentInput>(client, '/appointments');
   return { ...resource,
+    async page(businessId, filters, page) {
+      const params = new URLSearchParams(Object.entries(filters).filter(([, value]) => value).map(([key, value]) => [key, value!]));
+      params.set('page', String(page)); params.set('per_page', '20');
+      const r = await client.request<{ data: Appointment[]; meta: { current_page: number; per_page: number; total: number; last_page: number } }>(`/appointments?${params}`, { businessId });
+      return { data: r.data, meta: { currentPage: r.meta.current_page, perPage: r.meta.per_page, total: r.meta.total, lastPage: r.meta.last_page } };
+    },
     async search(bid, filters) {
       const params = new URLSearchParams(Object.entries(filters).filter(([, value]) => value).map(([key, value]) => [key, value!]));
       const data: Appointment[] = [];
@@ -17,7 +23,7 @@ export function appointmentService(client: HttpClient): Api['appointments'] {
         if (page >= response.meta.last_page) return data;
       }
     },
-    async availability(businessId, serviceId, staffId, date, excludeId) { const params = new URLSearchParams({ serviceId, date, ...(staffId ? { staffId } : {}), ...(excludeId ? { excludeId } : {}) }); return (await client.request<{ data: string[] }>(`/availability?${params}`, { businessId })).data; },
-    async setStatus(businessId, id, status) { return (await client.request<{ data: Appointment }>(`/appointments/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status }, businessId })).data; },
+    async availability(businessId, serviceId, staffId, date, excludeId, customerId) { const params = new URLSearchParams({ serviceId, date, ...(staffId ? { staffId } : {}), ...(excludeId ? { excludeId } : {}), ...(customerId ? { customerId } : {}) }); return (await client.request<{ data: string[] }>(`/availability?${params}`, { businessId })).data; },
+    async setStatus(businessId, id, status) { await client.csrf(); return (await client.request<{ data: Appointment }>(`/appointments/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status }, businessId })).data; },
   };
 }
