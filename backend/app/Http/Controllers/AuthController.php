@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AuthRequest;
 use App\Models\User;
+use App\Services\ReturnDestination;
 use App\Services\SessionProfile;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Verified;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class AuthController extends Controller
 {
@@ -36,7 +38,7 @@ class AuthController extends Controller
         }
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
-        $request->session()->put('auth.returnTo', \App\Services\ReturnDestination::safe($request->input('returnTo')));
+        $request->session()->put('auth.returnTo', ReturnDestination::safe($request->input('returnTo')));
         $sent = $this->sendVerification($user);
 
         return response()->json([...$this->profiles->for($user), 'verificationEmailSent' => $sent], 201);
@@ -48,7 +50,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
         $request->session()->regenerate();
-        $request->session()->put('auth.returnTo', \App\Services\ReturnDestination::safe($request->input('returnTo')));
+        $request->session()->put('auth.returnTo', ReturnDestination::safe($request->input('returnTo')));
 
         return $this->session($request);
     }
@@ -68,7 +70,7 @@ class AuthController extends Controller
         // The same public response for registered and unknown addresses.
         try {
             $status = Password::sendResetLink($request->safe()->only(['email']));
-        } catch (\Symfony\Component\Mailer\Exception\TransportExceptionInterface $error) {
+        } catch (TransportExceptionInterface $error) {
             Log::warning('Password reset delivery failed.', ['exception' => $error::class]);
             abort(503);
         }
@@ -115,8 +117,9 @@ class AuthController extends Controller
             event(new Verified($request->user()));
         }
 
-        $destination = \App\Services\ReturnDestination::safe($request->session()->pull('auth.returnTo'));
+        $destination = ReturnDestination::safe($request->session()->pull('auth.returnTo'));
         $path = $request->user()->memberships()->exists() ? $destination : '/onboarding'.($destination === '/app/overview' ? '' : '?'.http_build_query(['returnTo' => $destination]));
+
         return redirect(config('acm.frontend_url').$path);
     }
 
@@ -131,7 +134,11 @@ class AuthController extends Controller
         if ($changed) {
             $user->email_verified_at = null;
         }
-        try { $user->save(); } catch (UniqueConstraintViolationException) { throw ValidationException::withMessages(['email'=>['validation.emailTaken']]); }
+        try {
+            $user->save();
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['email' => ['validation.emailTaken']]);
+        }
         $sent = $changed ? $this->sendVerification($user) : null;
 
         return response()->json([...$this->profiles->for($user), 'verificationEmailSent' => $sent]);

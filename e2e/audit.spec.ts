@@ -1,12 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { mkdir, writeFile } from 'node:fs/promises';
 import dari from '../src/i18n/locales/fa-AF.json' with { type: 'json' };
-import { login, createBrowserFixture, signIn } from './helpers';
+import { login, createBrowserFixture, signIn, writeAuditReport } from './helpers';
 async function route(page: Page, path: string) { await page.evaluate(path => { history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')); }, path); await expect(page.locator('main')).toHaveAttribute('data-route', path.split('#')[0]); await expect(page.locator('main .loading')).toHaveCount(0); }
 test('all routes and principal dialogs pass automated accessibility in both languages', async ({ page }) => {
   test.setTimeout(480000); const results: { label: string; violations: unknown[] }[] = [];
-  async function audit(label: string) { const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze(); results.push({ label, violations: result.violations }); await mkdir('docs/audits', { recursive: true }); await writeFile('docs/audits/axe.json', JSON.stringify(results, null, 2)); expect(result.violations, label).toEqual([]); }
+  async function audit(label: string) { const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze(); results.push({ label, violations: result.violations }); await writeAuditReport('docs/audits/axe.json', results); expect(result.violations, label).toEqual([]); }
   for (const path of ['/login', '/signup', '/forgot-password', '/offline', '/missing-page']) { await page.goto(path); await expect(page.locator('main h1')).toBeVisible(); await audit(path); }
   for (const path of ['/login', '/signup', '/forgot-password', '/offline', '/missing-page']) { await page.goto(path); await expect(page.locator('main h1')).toBeVisible(); await page.getByRole('button', { name: 'Change language' }).click(); await page.getByRole('menuitemradio', { name: 'دری' }).click(); await expect(page.getByRole('menu')).toHaveCount(0); await expect(page.getByRole('button', { name: 'تغییر زبان' })).toBeFocused(); await audit(`fa-AF ${path}`); }
   const fixture = await login(page);

@@ -40,5 +40,13 @@ export function formatMoney(minor: number, currency: string, locale: Locale) {
 // ISO 4217 minor units are independent of CLDR display rounding (notably AFN).
 const currencyDigits: Record<string, number> = { AFN: 2, USD: 2, EUR: 2, GBP: 2, AED: 2, INR: 2, PKR: 2, JPY: 0 };
 export function currencyScale(currency: string) { return 10 ** (currencyDigits[currency] ?? (new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2)); }
+export function toMinorUnits(amount: number, currency: string): number {
+  const scale = currencyScale(currency), digits = Math.log10(scale);
+  const [whole, fraction = ''] = String(amount).split('.');
+  if (!Number.isFinite(amount) || amount < 0 || !/^\d+$/.test(whole) || !/^\d*$/.test(fraction) || fraction.length > digits) throw new RangeError('validation.price');
+  const result = Number(BigInt(whole) * BigInt(scale) + BigInt(fraction.padEnd(digits, '0') || '0'));
+  if (!Number.isSafeInteger(result)) throw new RangeError('validation.price');
+  return result;
+}
 export function minutes(time: string) { const [h, m] = time.split(':').map(Number); return h * 60 + m; }
 export function clockTime(value: number) { return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`; }

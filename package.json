@@ -22,7 +22,7 @@
     "backend:prepare-tests": "node scripts/prepare-backend-tests.mjs",
     "backend:dev": "php backend/artisan serve --host=127.0.0.1 --port=8000",
     "backend:migrate": "php backend/artisan migrate",
-    "backend:test": "php backend/artisan test",
+    "backend:test": "cd backend && php artisan test",
     "test:auth": "playwright test --config playwright.backend.config.ts"
   },
   "dependencies": {

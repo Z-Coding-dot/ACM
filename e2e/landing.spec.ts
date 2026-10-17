@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { login } from './helpers';
+import { login, writeAuditReport } from './helpers';
 import AxeBuilder from '@axe-core/playwright';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import en from '../src/i18n/locales/en.json' with { type: 'json' };
 import fa from '../src/i18n/locales/fa-AF.json' with { type: 'json' };
 
@@ -51,7 +51,7 @@ test('homepage and information page fit all required widths and pass axe in Engl
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), `${language} ${width} ${path}`).toBe(false);
         if (width <= 900) await expect(page.getByRole('button', { name: messages['landing.menu'], exact: true })).toBeVisible(); else await expect(page.locator('.public-auth a').last()).toBeVisible();
         const label = `${language} ${width} ${path}`; const audit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze(); results.push({ label, violations: audit.violations });
-        await mkdir('docs/audits', { recursive: true }); await writeFile('docs/audits/landing-axe.json', JSON.stringify(results, null, 2)); expect(audit.violations, label).toEqual([]);
+        await writeAuditReport('docs/audits/landing-axe.json', results); expect(audit.violations, label).toEqual([]);
         if (path === '/') { await mkdir('docs/screenshots', { recursive: true }); await page.screenshot({ path: `docs/screenshots/landing-${language}-${width}.png`, fullPage: true }); }
       }
     }
@@ -83,7 +83,7 @@ test('auth redesign validates controls, Google availability and all public width
     if (language === 'fa-AF') for (const selector of ['h1', '#auth-email', '.google-sign-in']) await expect(page.locator(selector)).toHaveCSS('font-family', /Vazirmatn/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), `${language} ${width} ${path}`).toBe(false);
     await expect(page.getByRole('button', { name: messages['auth.showPassword'] })).toBeVisible();
-    const label = `${language} ${width} ${path}`; const audit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze(); results.push({ label, violations: audit.violations }); await mkdir('docs/audits', { recursive: true }); await writeFile('docs/audits/auth-design-axe.json', JSON.stringify(results, null, 2)); expect(audit.violations, label).toEqual([]);
+    const label = `${language} ${width} ${path}`; const audit = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze(); results.push({ label, violations: audit.violations }); await writeAuditReport('docs/audits/auth-design-axe.json', results); expect(audit.violations, label).toEqual([]);
     if ([390, 1440].includes(width)) await page.screenshot({ path: `docs/screenshots/auth-${path.slice(1)}-${language}-${width}.png`, fullPage: true });
   }
 });

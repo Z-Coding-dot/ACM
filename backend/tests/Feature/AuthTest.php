@@ -123,16 +123,17 @@ class AuthTest extends TestCase
     {
         $this->withHeader('Authorization', 'Bearer unsupported-token')->getJson('/api/v1/me')->assertUnauthorized();
     }
+
     public function test_safe_return_destination_survives_email_verification_and_unsafe_urls_do_not(): void
     {
         Notification::fake();
-        $this->postJson('/api/v1/auth/signup', ['name'=>'Owner','email'=>'return@example.test','password'=>'Password123!','password_confirmation'=>'Password123!','returnTo'=>'/app/customers/new?source=signup'])->assertCreated();
-        $user=User::where('email','return@example.test')->firstOrFail();
-        $url=URL::temporarySignedRoute('verification.verify',now()->addMinutes(10),['id'=>$user->id,'hash'=>sha1($user->email)]);
-        $this->get($url)->assertRedirect('http://127.0.0.1:5173/onboarding?'.http_build_query(['returnTo'=>'/app/customers/new?source=signup']));
+        $this->postJson('/api/v1/auth/signup', ['name' => 'Owner', 'email' => 'return@example.test', 'password' => 'Password123!', 'password_confirmation' => 'Password123!', 'returnTo' => '/app/customers/new?source=signup'])->assertCreated();
+        $user = User::where('email', 'return@example.test')->firstOrFail();
+        $url = URL::temporarySignedRoute('verification.verify', now()->addMinutes(10), ['id' => $user->id, 'hash' => sha1($user->email)]);
+        $this->get($url)->assertRedirect('http://127.0.0.1:5173/onboarding?'.http_build_query(['returnTo' => '/app/customers/new?source=signup']));
         $this->postJson('/api/v1/auth/logout')->assertNoContent();
-        $this->postJson('/api/v1/auth/login',['email'=>$user->email,'password'=>'Password123!','returnTo'=>'https://evil.example/app/overview'])->assertOk();
-        $this->assertSame('/app/overview',session('auth.returnTo'));
-        $this->postJson('/api/v1/auth/login',['email'=>[],'password'=>'Password123!'])->assertUnprocessable();
+        $this->postJson('/api/v1/auth/login', ['email' => $user->email, 'password' => 'Password123!', 'returnTo' => 'https://evil.example/app/overview'])->assertOk();
+        $this->assertSame('/app/overview', session('auth.returnTo'));
+        $this->postJson('/api/v1/auth/login', ['email' => [], 'password' => 'Password123!'])->assertUnprocessable();
     }
 }

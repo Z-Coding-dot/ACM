@@ -86,7 +86,7 @@ services:
     depends_on: { app: { condition: service_healthy } }
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/up"]
+      test: ["CMD", "wget", "--quiet", "--spider", "--header=Host: ${ACM_DOMAIN}", "http://127.0.0.1/up"]
       interval: 30s
       timeout: 10s
       retries: 3

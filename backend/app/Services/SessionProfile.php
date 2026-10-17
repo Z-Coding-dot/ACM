@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Http\Resources\BusinessResource;
+use App\Models\User;
 
 class SessionProfile
 {
@@ -12,6 +12,7 @@ class SessionProfile
         $memberships = $user->memberships()->with(['business.settings', 'business.hours'])->orderBy('id')->get();
         $businesses = $memberships->map(fn ($membership) => BusinessResource::data($membership->business, $membership))->all();
         $active = collect($businesses)->firstWhere('id', $user->active_business_id)['id'] ?? ($businesses[0]['id'] ?? null);
+
         return [
             'user' => ['id' => (string) $user->id, 'name' => $user->name, 'email' => $user->email, 'emailVerified' => $user->hasVerifiedEmail(), 'locale' => $user->locale, 'businessId' => $active],
             'businesses' => $businesses,

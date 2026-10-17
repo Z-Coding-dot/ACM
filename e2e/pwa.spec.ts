@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
-import { login } from './helpers';
+import { login, createBrowserFixture, signIn } from './helpers';
 import fa from '../src/i18n/locales/fa-AF.json' with { type: 'json' };
 import sharp from 'sharp';
 test('production PWA manifest and all raster icons are valid', async ({ request }) => {
@@ -11,11 +11,12 @@ test('production PWA manifest and all raster icons are valid', async ({ request 
   const favicon = await request.get('/icons/icon-192.png'); const pixels = await sharp(await favicon.body()).ensureAlpha().raw().toBuffer(); expect(pixels[3]).toBe(0);
 });
 test('install event received before login remains usable and is consumed once', async ({ page }) => {
+  const fixture = createBrowserFixture();
   await page.goto('/login'); await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   await page.evaluate(() => {
     const event = Object.assign(new Event('beforeinstallprompt'), { prompt: async () => { document.documentElement.dataset.promptCalls = '1'; }, userChoice: Promise.resolve({ outcome: 'dismissed' }) }); window.dispatchEvent(event);
   });
-  await expect(page.getByRole('button', { name: 'Install app' })).toBeVisible(); await page.goto('/'); await page.getByRole('button', { name: 'Install app' }).click(); await expect(page.locator('html')).toHaveAttribute('data-prompt-calls', '1'); await expect(page.getByRole('button', { name: 'Install app' })).not.toBeVisible();
+  await expect(page.getByRole('button', { name: 'Install app' })).toBeVisible(); await signIn(page, fixture); await page.getByRole('button', { name: 'Install app' }).click(); await expect(page.locator('html')).toHaveAttribute('data-prompt-calls', '1'); await expect(page.getByRole('button', { name: 'Install app' })).not.toBeVisible();
 });
 test('an actual waiting service worker displays the update notification and reloads on request', async ({ page }) => {
   const original = await readFile('dist/sw.js', 'utf8');

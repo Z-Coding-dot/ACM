@@ -1,49 +1,60 @@
 # Appointment & Customer Management
 
-A React + strict TypeScript frontend built from `Skills/Frontend.md`. Carbon-informed design, five tenant-specific industry configurations, English and Dari RTL, connected booking/customer/team workflows, and a PWA shell. Backend development is deliberately separate.
+ACM combines a React/TypeScript frontend with Laravel, Sanctum, Socialite and MySQL. It supports appointment scheduling, contacts, independent staff profiles, services, workspace roles and business settings. English and Dari/RTL share the existing Carbon-informed design.
 
-## Run locally
+## Local development
 
-Requires Node 22.12+ (verified on Node 22.13). On Windows PowerShell use `npm.cmd` if script execution policy blocks `npm.ps1`.
+Requirements: Node 22.12+, PHP 8.2+ with PDO MySQL and mbstring, Composer, Docker Desktop and Chromium for browser tests. Production Docker uses PHP 8.4. On Windows use `npm.cmd`/`npx.cmd` if PowerShell blocks npm scripts.
+
+From the repository root:
 
 ```sh
-npm install
-npm run dev
+npm ci
+composer install --working-dir=backend
+npm run backend:env
+docker compose --env-file backend/.env -f compose.dev.yaml up -d --wait
+npm run backend:migrate
+npm run backend:prepare-tests
+npm run backend:dev
 ```
 
-Open the Local URL printed by Vite for the public homepage. Choose **Sign in**, then **Explore demo workspace**, or use `demo@acm.example` / `Demo1234!`. Demo authentication and data live in memory and reset on reload. Switch between five sample tenants using the sidebar selector or mobile More menu. **Get started** opens the existing signup form; real signup still requires the separately developed backend. `/about` explains product-preview, data and offline behavior.
+In a second terminal run `npm run dev`. Open **http://127.0.0.1:5173/**. Laravel runs at **http://127.0.0.1:8000**. Create an account; open its verification message in **http://127.0.0.1:8025** (Mailpit), then configure a business. Application records persist in MySQL on port 3307. There are no demo credentials or production sample records.
+
+`backend:env` creates private local environment files and random application/database keys. It preserves existing keys and Google credentials, but resets other local settings to the template. Use it only for this local Docker setup. Never use it to configure a production server. Keep Docker's data volume and its matching database passwords together.
+
+## Verification
 
 ```sh
-npm run typecheck
-npm run lint
-npm run i18n:check
-npm test
-npx playwright install chromium --only-shell
+npm run check
+npm run backend:test
+npx playwright install chromium
 npm run test:e2e
-npm run build
-npm run build:demo
 npm run test:pwa
-node scripts/check-contrast.mjs
 ```
 
-The essential browser suite uses port 5174. `npm run build` produces the live API build. `npm run build:demo` is the explicit standalone demonstration build; use `npm run preview -- --port 4174` afterward. Production authentication is never inferred from localStorage.
+Run browser suites sequentially: they own backend port 8001 and use the dedicated `acm_e2e_test` schema. Backend tests require MySQL and a database ending in `_test`; they never substitute SQLite. `backend:prepare-tests` creates local test schemas and applies browser migrations. PWA tests require the production build from `npm run check` or `npm run build`.
 
-For the production mobile Lighthouse audit, build the demo, leave `npm run preview -- --port 4174 --strictPort` running in one terminal, then run `npm run audit:lighthouse` in another. Stop other browser suites while measuring. The script audits `/login`, saves JSON/HTML under `docs/audits/`, and fails below 95 accessibility or 85 performance. It does not measure authenticated routes or a Laravel deployment. `ACM_AUDIT_URL` can select another public URL; `CHROME_PATH` can select an installed Chromium executable.
+Browser fixtures are explicitly inserted into the isolated browser database and accessed through real login/API requests. Unit fixtures live in `src/test`. Neither is a production data source. No auth token or private business record is saved in localStorage or the service-worker cache.
 
-## Architecture
+## Google sign-in
 
-- `src/app`: router, providers and authenticated workspace shell.
-- `src/components`: reusable UI, modal sheets, navigation, language menu and PWA controls.
-- `src/features`: appointments, calendar, contacts, services, team, settings and auth.
-- `src/config`: navigation, currencies and tenant-specific industry configuration.
-- `src/services`: API interfaces, centralized HTTP/error handling, independent resource services and development mock implementation.
-- `src/i18n/locales`: exactly English and Dari. The translation check also detects unlocalized JSX text and literal accessible labels.
-- `e2e`: complete booking/contact flows, routes, industry switching, offline behavior and the eight required widths in both directions.
+Register a Google **Web application** OAuth client with this exact local callback:
 
-Documentation: [design decisions](docs/DESIGN_SYSTEM.md), [Laravel contract](docs/API_INTEGRATION.md), [industry extension guide](docs/INDUSTRY_CONFIGURATION.md), [audit checklist](docs/FRONTEND_CHECKLIST.md), [verification report](docs/VERIFICATION.md).
+```text
+http://127.0.0.1:8000/auth/google/callback
+```
 
-Remaining release work includes Laravel integration, native-speaker Dari review, permission/session handling agreed with Laravel, and real Safari/iOS and assistive-technology QA. See the verification report for checks actually run. Installation in production requires HTTPS; appointment mutations require connectivity.
+Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` only in the ignored `backend/.env`. The public frontend entry is `http://127.0.0.1:8000/auth/google/redirect`. Production requires the real HTTPS domain and its matching callback. Automated OAuth tests mock Google's responses; successful live Google sign-in still requires your external configuration.
 
-The public/mobile navigation displays signed-in names and a dashboard action. The PWA starts at `/`. Login supports password visibility and sends the optional remember preference to the server; demo sessions still reset. Google entry requires a separately configured `VITE_GOOGLE_AUTH_URL` from the backend and otherwise explains its unavailability. No Google provider or backend was implemented.
+## Architecture and handover
 
-The original brand artwork is preserved in `public/brand/ACM_LOGO.png`. Its background-free derivative is `public/brand/acm-logo-transparent.png`; run `node scripts/generate-icons.mjs` after updating that derivative to regenerate the lightweight UI mark and transparent favicon/touch/app icons. The separately padded maskable icon retains an opaque canvas for installation. Vite serves these assets under `/brand/` and `/icons/`, without a `/public/` URL prefix.
+- `src/`: existing public pages, application UI, two locales and real HTTP services.
+- `backend/`: validation, policies, tenant-scoped models/APIs, migrations and MySQL tests.
+- `compose.dev.yaml`: local MySQL and Mailpit.
+- `compose.prod.yaml` and `deploy/`: PHP 8.4, Nginx, MySQL, HTTPS proxy, scheduler and separate migration credentials.
+- [API contract](docs/API_INTEGRATION.md), [deployment and backups](docs/DEPLOYMENT.md), [backend implementation](docs/BACKEND_IMPLEMENTATION.md), [verification history](docs/VERIFICATION.md).
+- [Design system](docs/DESIGN_SYSTEM.md), [industry configuration](docs/INDUSTRY_CONFIGURATION.md).
+
+The initial release has no payment gateway, subscription charges or fabricated plan status. Optional numeric limits are administrator configuration. Clinics support basic contacts and scheduling; there are no medical-record, diagnosis or prescription features.
+
+The original artwork remains in `public/brand/ACM_LOGO.png`; its background-free derivative is `public/brand/acm-logo-transparent.png`. Run `node scripts/generate-icons.mjs` after changing the derivative. Public assets use `/brand/` and `/icons/` URLs.

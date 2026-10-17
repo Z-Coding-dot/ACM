@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Enums\BusinessRole;
 use App\Http\Requests\BusinessRequest;
 use App\Http\Resources\BusinessResource;
+use App\Models\Appointment;
 use App\Models\Business;
+use App\Models\User;
+use App\Services\Scheduling;
 use App\Services\SessionProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,10 +25,12 @@ class BusinessController extends Controller
     {
         Gate::authorize('create', Business::class);
         DB::transaction(function () use ($request) {
-            $owner = \App\Models\User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
-            abort_unless($owner->hasVerifiedEmail(),403);
+            $owner = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            abort_unless($owner->hasVerifiedEmail(), 403);
             $limit = config('acm.limits.businesses');
-            if ($limit !== null && $request->user()->memberships()->where('role', 'owner')->count() >= $limit) abort(response()->json(['code'=>'error.planLimit'],409));
+            if ($limit !== null && $request->user()->memberships()->where('role', 'owner')->count() >= $limit) {
+                abort(response()->json(['code' => 'error.planLimit'], 409));
+            }
             $input = $request->validated();
             $business = Business::create($this->attributes($input));
             $business->memberships()->create(['user_id' => $request->user()->id, 'role' => BusinessRole::Owner]);
@@ -48,6 +53,7 @@ class BusinessController extends Controller
     public function show(Request $request)
     {
         Gate::authorize('view', $request->attributes->get('business'));
+
         return response()->json(['data' => BusinessResource::data($request->attributes->get('business'), $request->attributes->get('membership'))]);
     }
 
@@ -57,14 +63,16 @@ class BusinessController extends Controller
         Gate::authorize('update', $business);
         DB::transaction(function () use ($request, $business) {
             $business = Business::whereKey($business->id)->lockForUpdate()->firstOrFail();
-            Gate::authorize('update',$business);
+            Gate::authorize('update', $business);
             $input = $request->validated();
             $business->update($this->attributes($input));
             $this->configuration($business, $input);
             $business->load(['settings', 'hours']);
-            $bookings = \App\Models\Appointment::with('staff')->where('business_id', $business->id)->whereIn('status', \App\Services\Scheduling::OCCUPIED)->where('ends_at', '>', now())->get();
+            $bookings = Appointment::with('staff')->where('business_id', $business->id)->whereIn('status', Scheduling::OCCUPIED)->where('ends_at', '>', now())->get();
             foreach ($bookings as $booking) {
-                if (!app(\App\Services\Scheduling::class)->withinHours($business, $booking->staff, $booking->starts_at, $booking->ends_at, false)) abort(response()->json(['code'=>'error.scheduleInUse'],409));
+                if (! app(Scheduling::class)->withinHours($business, $booking->staff, $booking->starts_at, $booking->ends_at, false)) {
+                    abort(response()->json(['code' => 'error.scheduleInUse'], 409));
+                }
             }
         });
 
