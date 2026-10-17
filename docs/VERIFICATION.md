@@ -1,4 +1,51 @@
-# Frontend completion and verification
+# Application verification
+
+## Backend integration - 15 October 2026
+
+The application now uses Laravel, Sanctum, Socialite and MySQL. The frontend-only audits below are historical; their demo instructions, test counts and missing-backend items do not describe the current runtime. Use the [README](../README.md), [API contract](API_INTEGRATION.md), [backend handover](BACKEND_IMPLEMENTATION.md) and [deployment guide](DEPLOYMENT.md) for current behavior and commands.
+
+Environment: Windows/PowerShell, local PHP 8.2.12, Node 22.13.0, MySQL 8.4 in Docker, Mailpit, Chromium/Playwright. Production images use PHP 8.4 and Nginx. Backend unit/feature tests use acm_test; browser workflows use acm_e2e_test. No production records or external Google account were used.
+
+| Command/check | Observed result |
+| --- | --- |
+| php vendor/bin/pint; php vendor/bin/pint --test (backend directory) | Formatting applied; validation passed |
+| php artisan test --compact (backend directory) | 52 passed, 404 assertions against MySQL |
+| npm.cmd run backend:prepare-tests | Passed; isolated schemas ready and browser migrations current |
+| npm.cmd run backend:test -- --compact | Passed after fixing the script's working directory: 52 tests, 404 assertions |
+| npm.cmd run typecheck | Passed |
+| npm.cmd run lint | Passed, no warnings |
+| npm.cmd run i18n:check | Passed: 389 matching English/Dari keys, interpolation/static-text checks |
+| npm.cmd test -- --maxWorkers=1 | 50 passed, 12 files |
+| npx.cmd playwright test | Initial full run: 19 passed, 6.9 minutes. Follow-up full run: 17 passed; two test-infrastructure failures (report I/O and premature auth navigation) corrected and rerun below. |
+| npm.cmd run build | Passed; lazy routes and static-shell PWA generated |
+| npm.cmd run test:pwa | 5 passed, 1.7 minutes; production preview with real backend login |
+| composer audit --locked --no-dev (backend directory) | No security advisories |
+| npm.cmd audit --omit=dev | Zero vulnerabilities |
+| docker build --quiet -f deploy/Dockerfile.backend -t acm-backend:verify . | Passed |
+| docker build --quiet -f deploy/Dockerfile.frontend --build-arg VITE_GOOGLE_AUTH_URL=https://acm.example.test/auth/google/redirect -t acm-frontend:verify . | Passed; placeholder local verification origin only |
+| Isolated acm-release-check production Compose validation/migration/startup | Configuration valid; eight migrations passed; preflight/config/route/view caches and CLI health passed; MySQL/app/web healthy |
+| Restricted production grants and backup/restore drill | Runtime DML only, CREATE denied; migration-account dump/restore round trip passed in a separately created empty local database |
+| Production image secret/test exclusion | Private environment files and browser test scripts absent |
+| npx.cmd playwright test --grep "all routes and principal dialogs&#124;real Laravel signup&#124;booking validates&#124;services, staff, settings" | 4 passed, 3.9 minutes; all 68 axe states had zero violations; signup/reset, booking and management passed |
+| git diff --check | Passed; Windows line-ending conversion notices only |
+
+Security checks include CSRF, authentication/reset/verification, rate limits, stateful Google callbacks with mocked HTTP responses, account-linking rejection, verified-user onboarding, role policies, cross-tenant reads/writes and composite foreign keys. Scheduling tests cover hours/breaks, DST, conflicts, cancellation, immutable final states, archive/configuration integrity and independent concurrent PHP workers competing for one slot (one success, one conflict).
+
+Browser coverage includes signup, Mailpit verification/reset, remembered login/logout, safe intended destinations, Dari email lang/dir and onboarding, persisted customer/service/staff/settings operations, contact history, booking/rescheduling/cancellation, industry switching, route reload/history, English/Dari and RTL. Responsive sweeps include 320, 390, 768 and 1440px, with additional application widths. The current [axe evidence](audits/axe.json) contains 68 settled states with 0 violations; [screenshots](screenshots/) were regenerated using real database fixtures. Automated checks do not establish complete WCAG conformance.
+
+Visual review confirmed the regenerated mobile Dari settings and desktop English calendar retain the existing layout. Full-page captures place fixed navigation at the capture viewport position.
+
+PWA checks exercise a synthetic pre-login install event, one-use prompt, actual waiting-worker update/reload, static-shell offline startup, Dari switching and offline public/information routes. Cache inspection found no API/CSRF entries. Native installation and deployed HTTPS updates remain manual checks.
+
+Production checks used a separate Docker project, fresh private MySQL/storage volumes and generated ignored credentials. Neither the Caddy HTTPS service nor scheduler was started for this drill. The backup marker was removed after verification and the isolated release-check containers were stopped with their volumes preserved. No domain was published or public certificate requested. The localhost verification origin is not a real deployment or a production Google callback.
+
+Build warnings: upstream Zod comment annotations and a roughly 555 kB main JavaScript chunk; build succeeds. A default-worker Vitest run encountered an IPC resource failure during Docker compilation; the single-worker run passed unchanged assertions. Follow-up browser verification exposed a transient Windows UNKNOWN file-open error while saving axe evidence and an auth assertion checking navigation before the real HTTP response. Report writes now retry only transient filesystem errors; login/signup tests explicitly await and assert successful HTTP responses. No accessibility rule or workflow assertion was removed. A post-booking refresh of unrelated directories/availability was also removed, and detail pages use the returned resource names.
+
+Remaining manual work: real Google credentials/consent and live OAuth; production SMTP/sender, domain/DNS and VPS deployment; HTTPS/device/PWA verification; native Dari wording and assistive-technology review. Historical Lighthouse reports below were not rerun and do not measure the backend-integrated deployment.
+
+---
+
+## Historical frontend-only audit
 
 Audit: **13 October 2026**, Windows, Node **22.13.0**, Chromium/Playwright. Initial tree clean at `b547986`. The frontend, Carbon-informed design and original role brief were preserved. No backend, database or migrations were created.
 

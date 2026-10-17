@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createFixtures } from '../src/test/fixtures';
 export interface BrowserFixture { email: string; password: string; ids: Record<string, string> }
 export function createBrowserFixture(): BrowserFixture {
@@ -22,8 +24,25 @@ export async function login(page: Page, fixture = createBrowserFixture()) {
 }
 export async function signIn(page: Page, fixture: BrowserFixture) {
   await page.getByLabel('Email address', { exact: true }).fill(fixture.email); await page.getByLabel('Password', { exact: true }).fill(fixture.password);
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  const [response] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST'),
+    page.getByRole('button', { name: 'Sign in', exact: true }).click(),
+  ]);
+  expect(response.status()).toBe(200);
   await expect(page.locator('main h1')).toBeVisible();
   await expect(page).toHaveURL(/\/app\//);
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+}
+
+// OneDrive/antivirus can briefly lock an existing report on Windows. Retry only
+// artifact I/O; accessibility assertions and browser actions are never retried here.
+export async function writeAuditReport(path: string, results: unknown) {
+  await mkdir('docs/audits', { recursive: true });
+  for (let attempt = 0; ; attempt++) {
+    try { await writeFile(path, JSON.stringify(results, null, 2)); return; }
+    catch (error) {
+      if (attempt >= 4 || !['UNKNOWN', 'EBUSY', 'EPERM', 'EACCES'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error;
+      await delay(100 * (attempt + 1));
+    }
+  }
 }

@@ -10,9 +10,11 @@ backend/storage/logs/*
 backend/storage/framework/cache/*
 backend/storage/framework/sessions/*
 backend/storage/framework/views/*
+backend/storage/framework/testing
 backend/bootstrap/cache/*.php
 backend/database/*.sqlite*
 docs/screenshots
+docs/audits
 test-results
 playwright-report
 .npm-cache

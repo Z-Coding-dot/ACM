@@ -4,7 +4,11 @@ import fa from '../src/i18n/locales/fa-AF.json' with { type: 'json' };
 test('real Laravel signup, persisted session, logout, login and password reset work with local mail', async ({ page, request }) => {
   const email = `auth-${Date.now()}@example.test`, password = 'TestPassword123!';
   await page.goto('/signup'); await page.getByLabel('Full name', { exact: true }).fill('Test Owner'); await page.getByLabel('Email address', { exact: true }).fill(email); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByLabel('Confirm password', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Create an account', exact: true }).click(); await expect(page).toHaveURL(/\/verify-email$/); await expect(page.locator('h1')).toHaveText('Verify your email');
+  const [signup] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/signup' && response.request().method() === 'POST'),
+    page.getByRole('button', { name: 'Create an account', exact: true }).click(),
+  ]);
+  expect(signup.status()).toBe(201); await expect(page).toHaveURL(/\/verify-email$/); await expect(page.locator('h1')).toHaveText('Verify your email');
   await page.reload(); await expect(page.locator('h1')).toHaveText('Verify your email'); await expect(page.locator('main')).toContainText(email);
   const session = await page.request.get('/api/v1/me'); expect(session.status()).toBe(200); expect((await session.json()).businesses).toEqual([]);
   await expect.poll(async () => (await (await request.get(`http://127.0.0.1:8025/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`)).json()).messages.length).toBeGreaterThan(0);

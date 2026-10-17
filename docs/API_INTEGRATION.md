@@ -1,106 +1,121 @@
-# Laravel integration contract (proposed)
+# ACM API contract
 
-This repository implements the frontend only. There are no Laravel files, database migrations, real authentication credentials, or database persistence. `src/services/contracts.ts` is the adapter boundary; React components use feature services through TanStack Query and never fetch URLs themselves.
+Implemented Laravel API: `/api/v1`. The React services in `src/services/contracts.ts` use camelCase DTOs, string IDs and cookie credentials. There is one runtime HTTP adapter; unavailable APIs produce errors, never fixture fallbacks.
 
-## Modes
+## Authentication
 
-- `npm run dev` uses `.env.development` and the in-memory demo adapter. Only the displayed demo credentials work. Reloading resets authentication and demo changes.
-- `npm run build:demo` explicitly produces a public-data demonstration build. Do not use it with private or real customer records.
-- `npm run build` uses the live HTTP adapter; mock authentication is disabled in production mode even if someone sets `VITE_API_MODE=demo`.
-- Copy `.env.example` to `.env.production.local` and set `VITE_API_BASE_URL` to the Laravel API. Vite environment values are public; never put secrets there.
+Call `GET /sanctum/csrf-cookie` before writes and send the decoded `XSRF-TOKEN` cookie as `X-XSRF-TOKEN`. Session cookies are HttpOnly and encrypted. Production cookies require HTTPS. Exact CORS origins and Sanctum hostnames are environment settings. Bearer tokens are unsupported.
 
-The mock implements the same interfaces as the live services. Mock tenant checks help exercise the UI, but cannot establish server authorization. All five demo workspaces belong to a single demo account. Fixtures are initialized on the first valid demo login. Query keys start with the business ID; switching businesses clears the query cache and remounts workspace content. Business saves also update the demo session's business snapshot. Conflict checking and committing a demo appointment run together without an asynchronous gap; the backend must provide its own transactional locking.
-
-## Authentication and tenancy
-
-Proposed session-cookie authentication with Laravel Sanctum: HttpOnly session cookies, credentials included, exact allowed CORS origins, CSRF protection, and XSRF token headers. The HTTP client reads Laravel's `XSRF-TOKEN` cookie and supplies `X-XSRF-TOKEN`. The server must establish CSRF cookies before login; integrate a bootstrap endpoint or Sanctum `/sanctum/csrf-cookie` call appropriate to the chosen deployment topology. That external bootstrap is not invented here.
-
-All workspace requests send `X-Business-ID`; Laravel must verify membership for that workspace and scope every lookup and mutation server-side. This header and frontend filtering are not security boundaries. No authentication token, session assertion, or customer data is persisted to localStorage.
-
-The implemented HTTP client includes credentials, encodes resource IDs, safely decodes the CSRF cookie, and aborts requests after 15 seconds. Startup session errors distinguish signed-out (401) from network/server failures, which offer retry. Authenticated 401/419 responses clear the protected session and cancel/clear private query data through `acm:session-expired`. Login failures do not expire an existing session; startup 401 is an ordinary signed-out response. Protected local paths, including query/hash, survive login; external and normalized traversal destinations are rejected.
-
-Auth endpoints are relative to `VITE_API_BASE_URL`:
-
-| Method | Endpoint | Input / response |
+| Method | Path | Payload/result |
 | --- | --- | --- |
-| GET | `/auth/session` | Session below; 401 for signed-out |
-| POST | `/auth/login` | `{ "email": "…", "password": "…", "remember": false }` → Session |
-| POST | `/auth/signup` | `{ "name": "…", "email": "…", "password": "…" }` → 204 after real server acceptance |
-| POST | `/auth/forgot-password` | `{ "email": "…" }` → 204, neutral anti-enumeration response |
-| POST | `/auth/logout` | 204, invalidate server session |
-| PATCH | `/auth/account` | `{ "name": "…", "email": "…" }` → 204 |
+| POST | /auth/signup | name, email, password, password_confirmation, locale (en/fa-AF), optional returnTo; 201 Session |
+| POST | /auth/login | email, password, remember, optional returnTo; 200 Session |
+| GET | /auth/session or /me | 200 Session; 401 when signed out |
+| POST | /auth/logout | 204; invalidates the server session |
+| POST | /auth/forgot-password | email; neutral 204 for known/unknown addresses; delivery failure 503 |
+| POST | /auth/reset-password | email, token, password, password_confirmation; 204; token consumed and existing sessions invalidated |
+| POST | /auth/verification-notification | authenticated; resend verification; 204 or delivery failure 503 |
+| PATCH | /auth/account | name, email, currentPassword when changing email; 200 Session |
+| POST | /auth/workspace | verified member; businessId; 200 Session |
+
+Signup creates an unverified account with no business. `verificationEmailSent` records whether synchronous SMTP submission succeeded; a failure leaves the account available for retry. Email changes require the current password and clear verification. Google-only users can establish a password through password reset first.
+
+Verification uses signed `GET /email/verify/{id}/{hash}` outside the API prefix. The current authenticated user, email hash, signature and expiry must match. Opening the message in another browser requires signing in and opening the link again.
+
+Session example (illustrative structure, not a seeded account):
 
 ```json
-{
-  "user": { "id": "u_1", "name": "Workspace owner", "email": "owner@example.com", "businessId": "b_1" },
-  "businesses": [{ "id": "b_1", "name": "Example business", "industry": "other", "email": "hello@example.com", "phone": "+93700123456", "timeZone": "Asia/Kabul", "currency": "AFN", "locale": "en", "hours": [{ "day": 0, "open": "09:00", "close": "18:00", "closed": false }], "appointmentSettings": { "slotMinutes": 30, "allowUnassigned": true, "requireConfirmation": false } }],
-  "activeBusinessId": "b_1"
-}
+{"user":{"id":"1","name":"Owner","email":"owner@example.test","emailVerified":false,"locale":"en","businessId":null},"businesses":[],"activeBusinessId":null,"verificationEmailSent":true}
 ```
 
-The UI submits real signup/reset requests only in live mode. The demo returns translated "unavailable" errors rather than claiming an email was sent or an account was created. Production user/email verification and permission models must be agreed with the backend team.
+An authorized business includes `id, name, industry, email, phone, timeZone, currency, locale, hours, appointmentSettings, role, permissions`. Active workspace selection persists on the user record. Safe `/app/*` return destinations survive authentication, verification and onboarding. Foreign origins, traversal, backslashes and control characters are rejected.
 
-The login checkbox passes `remember` through AuthProvider and the live service. Laravel must choose the actual session/cookie duration; the frontend never saves passwords or fabricates persistent authentication. The in-memory demo explicitly still resets after reload, regardless of this checkbox.
+## Google OAuth
 
-Google buttons on login/signup use a separately configured `VITE_GOOGLE_AUTH_URL` (an absolute HTTPS OAuth entry URL supplied by the future backend, with HTTP allowed only for localhost development). There is no invented `/auth/google` API or frontend token exchange. Missing/invalid configuration or demo mode produces a translated unavailable state. The configured redirect receives the safe local `returnTo` destination; the backend must validate it again and own OAuth state/verification, callback handling, account creation and session cookies. No provider is configured or end-to-end Google authentication verified in this frontend phase.
+- `GET /auth/google/redirect?returnTo=...&locale=en|fa-AF`
+- `GET /auth/google/callback`
 
-## Resources and pagination
+Socialite owns the stateful authorization-code exchange with PKCE. Only openid/profile/email scopes are requested. A verified provider email and stable Google ID are required. Unique external identities prevent duplicate linking. Existing identities authenticate their linked local user; an unrelated local account with a matching email is rejected with `link_required`. Automatic email linking and provider-token storage are not implemented.
 
-`/appointments`, `/customers`, `/services`, `/staff`: GET collection, GET `/{id}`, POST create, PATCH `/{id}`. Details and mutations return `{ "data": DomainObject }`. Lists return Laravel-style metadata:
+Errors redirect to the frontend login with a whitelisted `oauth` code: denied, state, identity, link_required or unavailable. Missing credentials never simulate success. See [Google's web-server flow](https://developers.google.com/identity/protocols/oauth2/web-server) and [OAuth production readiness](https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance).
+
+## Business context and roles
+
+Every business endpoint requires authentication, verified email and membership. Supply `X-Business-ID` or use the user's authorized active business. Header IDs are checked; tenant-owned lookups include the business constraint. Foreign resources return 404. Composite database foreign keys additionally reject cross-business appointment/staff relationships.
+
+| Role | Read workspace | Contacts/bookings | Services/staff/settings | Membership access |
+| --- | --- | --- | --- | --- |
+| Owner | Yes | Write | Write | Write |
+| Administrator | Yes | Write | Write | No |
+| Receptionist | Yes | Write | No | No |
+| Staff | Yes | No | No | No |
+
+Staff profiles can exist without login accounts. A linked user must already belong to that business. Staff-role reads cover the workspace; there is no per-practitioner confidentiality model in this release.
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| GET/POST | /businesses | List permitted businesses / create owned business |
+| GET/PATCH | /business | Read/save active business configuration |
+| GET/POST | /memberships | Owner lists/adds an existing verified account by email and role |
+| PATCH/DELETE | /memberships/{id} | Owner changes non-owner role/removes access |
+| GET | /dashboard | Real daily schedule, upcoming appointments, status counts, contact total and recent contacts |
+
+Owners cannot be demoted or removed through these membership endpoints. There is no invitation-email or ownership-transfer workflow. Removing access preserves staff profiles and appointment history.
+
+Business input: `name, industry, email, phone, timeZone, currency, locale, hours, appointmentSettings`. Industries: salon, clinic, education, consulting, other. Settings: `slotMinutes` 5–60, `allowUnassigned`, `requireConfirmation`. Seven hours entries use day 0 Sunday through 6 Saturday, local HH:mm, closed, and optional breaks `[{open,close}]`. Breaks must be ordered without overlaps and stay inside opening hours. Overnight hours/date-specific closures are not modeled.
+
+## Directories
+
+For each of `/customers`, `/services`, `/staff`:
+
+- GET collection; POST create (201).
+- GET/PATCH `/{id}` (200); DELETE `/{id}` archives (204).
+- Details and writes return `{"data": {...}}`.
+- Query: search, page, per_page (1–100), active=true/false/all, sort=name/createdAt, direction=asc/desc.
+- Contacts default to active records; services/staff include inactive records so they can be managed.
+- Search matches names and, for contacts/staff, email/phone. SQL wildcard characters are escaped.
 
 ```json
-{ "data": [], "meta": { "current_page": 1, "per_page": 6, "total": 0, "last_page": 1 } }
+{"data":[],"meta":{"current_page":1,"per_page":20,"total":0,"last_page":1}}
 ```
 
-Customer directory query: `search`, `page`, `per_page`; the adapter converts snake-case pagination metadata into TypeScript's camel-case model. Appointment filters: `search`, `from`, `to`, `status`, `staffId`, `page`. Date ranges are inclusive business-local ISO dates. Resource directory and appointment-filter queries consume pages and reject non-array data, invalid page counts and more than 1,000 pages. Large-scale server-side selectors and bounded calendar queries are a future optimization. TypeScript models describe the expected contract; they do not provide exhaustive runtime validation of every returned domain field.
+| Resource | Fields |
+| --- | --- |
+| Customer | id, businessId, name, email, phone, notes, active, createdAt |
+| Service | id, businessId, name, description, durationMinutes (5–480), priceMinor (integer, 0–1,000,000,000), currency, active |
+| Staff | id, businessId, name, email, phone, serviceIds, hours, active, optional userId |
 
-Laravel API Resources should serialize domain properties in camelCase consistently (or add conversion in the services). IDs are strings. `businessId` comes from validated tenant context; the server must ignore or reject attempts to assign another tenant.
+Contact email/notes are optional; phone is required. Exact normalized name/email/phone fingerprints prevent accidental duplicate contact creation without imposing uniqueness on a family's shared phone/email. Archives preserve history. Active appointments must be cancelled/rescheduled before a referenced record can be archived. Staff assignment/hour edits and business schedule edits cannot invalidate existing active appointments.
 
-Appointment create / update body:
+Money is stored as integer minor units; each service retains its own currency. Supported currencies: AFN, USD, EUR, GBP, AED, INR, PKR (two digits), JPY (zero). Changing business currency does not convert prices.
 
-```json
-{
-  "customerId": "c_1", "serviceId": "s_1", "staffId": "t_1",
-  "startsAt": "2026-10-13T04:30:00.000Z", "status": "scheduled", "notes": "Scheduling note"
-}
-```
+Contact selectors and directories fetch pages rather than downloading all contacts. Appointment responses include authorized display names, so calendar/history views do not require a complete contact directory.
 
-Appointment response:
+## Appointments and availability
 
-```json
-{
-  "data": {
-    "id": "a_1", "businessId": "b_1", "customerId": "c_1", "serviceId": "s_1", "staffId": "t_1",
-    "startsAt": "2026-10-13T04:30:00.000Z", "endsAt": "2026-10-13T05:15:00.000Z",
-    "status": "scheduled", "notes": "Scheduling note"
-  }
-}
-```
+| Method | Path | Behavior |
+| --- | --- | --- |
+| GET/POST | /appointments | Paginated query / create (201) |
+| GET/PATCH | /appointments/{id} | Read / reschedule or update |
+| PATCH | /appointments/{id}/status | confirmed, completed, cancelled, no-show |
+| DELETE | /appointments/{id} | Cancel while retaining history |
+| GET | /calendar | Same range-query contract as appointments |
+| GET | /availability | Available UTC start instants |
 
-Related customers/services/staff are normalized by ID and resolved from resource queries. Optional staff is `null`. The server calculates `endsAt` from the selected service, checks future date, permitted status transitions, active services/staff, assignments, hours, and customer/staff conflicts atomically. Statuses: `scheduled`, `confirmed`, `completed`, `cancelled`, `no-show`.
+Booking input: customerId, serviceId, nullable staffId, startsAt, notes, optional scheduled/confirmed status. The server derives end time and stores duration, service-name and price/currency snapshots. The business confirmation setting determines initial status. References must be active, belong to the business and have the required staff/service assignment.
 
-- `GET /availability?serviceId=s_1&staffId=t_1&date=2026-10-13&excludeId=a_1` → `{ "data": ["2026-10-13T04:30:00.000Z"] }`. `staffId` and editing `excludeId` are optional.
-- `PATCH /appointments/{id}/status` with `{ "status": "cancelled" }` → `{ "data": Appointment }`.
-- `PATCH /business` with editable Business values → `{ "data": Business }`.
+Timestamps require ISO 8601 with an explicit UTC offset or Z, minute precision and a real calendar date. Database values are UTC. Booking horizon is 365 days. A slot must fit business and staff hours, avoid breaks and align with the configured interval from the later opening time. DST gaps/folds are evaluated using actual elapsed UTC minutes.
 
-Customer input: `{ name, email, phone, notes }`; server response adds `id`, `businessId`, ISO `createdAt`. Staff input: `{ name, email, phone, serviceIds, hours, active }`. Service input: `{ name, description, durationMinutes, priceMinor, currency, active }`; price is an integer in currency minor units. Currency uses ISO codes and the currency's fraction digits (JPY has zero); changing business currency does not convert existing service prices.
+Active scheduled/confirmed appointments reserve capacity. Overlaps are rejected for the same customer or staff member. Unassigned appointments share one unassigned capacity per business; other staff have independent capacity. A shared business-row lock serializes booking, cancellation, configuration and directory writes. Validation and insertion occur in a MySQL transaction with deadlock retries. Two independent PHP workers are tested against the same slot.
 
-Minor-unit conversion is explicitly defined for the eight currently supported currencies. Display formatting explicitly uses the same exponent, so AFN/PKR fractional amounts are visible and JPY has no fraction. AFN uses two minor-unit digits, independently of the browser's default display rounding. The AFN/JPY/PKR definitions were verified against the [official SIX ISO 4217 list](https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/lists/list-one.xml). Add and verify a currency's minor-unit exponent when extending the currency options.
+Completed/cancelled/no-show records cannot be rescheduled or resurrected. Completed/no-show transitions require the start time to have arrived.
 
-Hours are seven entries, `day: 0` Sunday through `6` Saturday; `open`/`close` use business-local `HH:mm`. Overnight hours and date-specific exceptions are outside this first UI phase. All API timestamps are ISO 8601 with an explicit offset; the UI formats in business time zone and locale, using Gregorian calendar dates for consistent booking input.
+Query: search, from/to (inclusive business-local dates), status, staffId, customerId, page, per_page. Default window: 30 days before today through 120 days after that start. Explicit ranges are limited to 367 days. Customer history without from/to spans history but remains database-paginated. Availability query: serviceId, date (local YYYY-MM-DD), optional staffId, customerId, excludeId; response `{"data":["...Z"]}`.
 
-## Errors
+## Errors, caching and operations
 
-```json
-{ "message": "Validation failed", "errors": { "email": ["Invalid email"], "startsAt": ["Unavailable time"] } }
-```
+HTTP: 401 unauthenticated, 403 unauthorized/unverified, 404 absent/inaccessible, 409 conflict, 419 invalid CSRF/session, 422 validation, 429 throttled, 503 delivery/service unavailable. Field errors are translated through approved frontend keys; arbitrary backend text is not rendered. Whitelisted conflict codes distinguish plan limits, referenced active bookings and schedule changes.
 
-422 field errors map to translated frontend messages for booking and contact forms; other forms show a translated request error. Arbitrary backend text is not rendered as interface copy. Central errors cover network/offline, timeout, invalid JSON/pagination, 401, 403, 404, 409 conflicts, 419 CSRF/session expiration, 422, and 429. Auth provider checks `/auth/session` at startup and responds to expiry as described above. HTTP contract tests use mocked responses; no running Laravel server has been tested.
+Logout, expiry and workspace changes cancel and clear private query data. Pending workspace responses cannot restore a logged-out session. The service worker precaches static assets only and excludes API, CSRF, OAuth and verification routes. Mutations require connectivity.
 
-## PWA and deployment
-
-Static shell assets are precached. There is no runtime API caching, mutation queue, or claim of offline booking. Offline startup routes to the translated offline screen; online data queries and writes reject while disconnected. Query data lives in memory, is cleared on logout/workspace switch, and is not a service-worker cache.
-
-Production installation requires HTTPS, a history fallback to `index.html`, appropriate CORS/CSRF/session settings and CSP. `/api/` and `/sanctum/` are excluded from navigation fallback. The manifest includes regular 192px/512px icons, a separately padded maskable icon, and an Apple touch icon. A root provider captures install events before login and consumes the prompt once. Updates activate and reload only after the user accepts; controller-change handling also supports first-session/external worker updates. iOS guidance appears only on relevant devices.
-
-Playwright verifies offline reload and cache exclusion, a synthetic install-event lifecycle, and an actual waiting-worker update against a local production demo bundle. Physical-device installation, HTTPS deployment and real backend session/CSRF/permission behavior remain integration checks. See [verification evidence](VERIFICATION.md).
+Liveness: `/up`; database readiness: `/health/ready`; CLI health: `php artisan acm:health`; production preflight: `php artisan acm:production-check`. Initial limits are optional environment configuration, not subscription billing.

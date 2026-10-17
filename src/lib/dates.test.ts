@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { dateInZone, zonedTimestamp, addDays, formatMoney, currencyScale } from './dates';
+import { dateInZone, zonedTimestamp, addDays, formatMoney, currencyScale, toMinorUnits } from './dates';
 describe('business-local dates and currency', () => {
+  it('converts decimal amounts exactly and rejects unsupported currency precision', () => {
+    expect(toMinorUnits(120.25, 'AFN')).toBe(12025);
+    expect(toMinorUnits(0.29, 'USD')).toBe(29);
+    expect(toMinorUnits(1234, 'JPY')).toBe(1234);
+    expect(() => toMinorUnits(1.005, 'USD')).toThrow('validation.price');
+    expect(() => toMinorUnits(1.5, 'JPY')).toThrow('validation.price');
+    expect(() => toMinorUnits(-1, 'USD')).toThrow('validation.price');
+  });
   it('handles half-hour offsets independently of the host zone', () => {
     expect(zonedTimestamp('2026-10-13', '09:00', 'Asia/Kabul')).toBe('2026-10-13T04:30:00.000Z');
     expect(dateInZone('2026-10-12T22:00:00Z', 'Asia/Kabul')).toBe('2026-10-13');

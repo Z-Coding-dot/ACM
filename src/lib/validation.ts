@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { minutes } from './dates';
+import { minutes, toMinorUnits } from './dates';
 const required = z.string().trim().min(1, 'validation.required').max(160, 'validation.maxLength');
 const email = z.string().trim().email('validation.email');
 const phone = z.string().trim().regex(/^[+\d][\d\s().-]{6,24}$/, 'validation.phone');
@@ -10,7 +10,7 @@ export const hoursSchema = z.array(z.object({ day: z.number().int().min(0).max(6
   const breaks = [...(h.breaks ?? [])].sort((a, b) => a.open.localeCompare(b.open));
   if (!validTime(h.open) || !validTime(h.close) || (!h.closed && minutes(h.close) <= minutes(h.open)) || breaks.some((b, i) => !validTime(b.open) || !validTime(b.close) || b.open < h.open || b.close > h.close || b.close <= b.open || (i > 0 && b.open < breaks[i - 1].close))) context.addIssue({ code: 'custom', message: 'validation.hours', path: ['close'] });
 })).length(7, 'validation.hours').refine(hours => new Set(hours.map(h => h.day)).size === 7, 'validation.hours');
-export const serviceSchema = z.object({ name: required, description: z.string().max(2000, 'validation.maxLength'), durationMinutes: z.number({ error: 'validation.number' }).int('validation.number').min(5, 'validation.number').max(480, 'validation.number'), price: z.number({ error: 'validation.price' }).min(0, 'validation.price').max(10000000, 'validation.price'), currency: z.enum(['AFN', 'USD', 'EUR', 'GBP', 'AED', 'INR', 'PKR', 'JPY'], { error: 'validation.currency' }), active: z.boolean() });
+export const serviceSchema = z.object({ name: required, description: z.string().max(2000, 'validation.maxLength'), durationMinutes: z.number({ error: 'validation.number' }).int('validation.number').min(5, 'validation.number').max(480, 'validation.number'), price: z.number({ error: 'validation.price' }).min(0, 'validation.price').max(10000000, 'validation.price'), currency: z.enum(['AFN', 'USD', 'EUR', 'GBP', 'AED', 'INR', 'PKR', 'JPY'], { error: 'validation.currency' }), active: z.boolean() }).superRefine((value, context) => { try { toMinorUnits(value.price, value.currency); } catch { context.addIssue({ code: 'custom', path: ['price'], message: 'validation.price' }); } });
 export const staffSchema = z.object({ name: required, email, phone, active: z.boolean(), userId: z.string().nullable().optional(), serviceIds: z.array(z.string()), hours: hoursSchema });
 export const bookingSchema = z.object({ customerId: required, serviceId: required, staffId: z.string(), date: required, startsAt: z.string().min(1, 'validation.required').refine(value => !value || new Date(value).getTime() > Date.now(), 'validation.future'), notes: z.string().max(2000, 'validation.maxLength') });
 export const businessSchema = z.object({

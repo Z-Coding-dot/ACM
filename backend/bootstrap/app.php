@@ -1,8 +1,12 @@
 <?php
 
+use App\Http\Middleware\ResolveBusiness;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,14 +19,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
         $middleware->trustProxies(at: ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
         $middleware->trustHosts(at: fn () => ['^'.preg_quote((string) parse_url(config('app.url'), PHP_URL_HOST)).'$'], subdomains: false);
-        $middleware->alias(['business' => \App\Http\Middleware\ResolveBusiness::class]);
+        $middleware->alias(['business' => ResolveBusiness::class]);
         $middleware->redirectGuestsTo(fn () => config('acm.frontend_url').'/login');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->dontFlash(['password', 'password_confirmation', 'currentPassword', 'token', 'code', 'state']);
-        $exceptions->shouldRenderJsonWhen(fn (\Illuminate\Http\Request $request) => $request->is('api/*') || $request->expectsJson());
-        $exceptions->report(function (\Illuminate\Database\QueryException $error) {
-            \Illuminate\Support\Facades\Log::error('Database request failed.', ['exception' => $error::class, 'sqlState' => $error->errorInfo[0] ?? null]);
+        $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
+        $exceptions->report(function (QueryException $error) {
+            Log::error('Database request failed.', ['exception' => $error::class, 'sqlState' => $error->errorInfo[0] ?? null]);
+
             return false;
         });
     })->create();

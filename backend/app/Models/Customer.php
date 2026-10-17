@@ -1,5 +1,11 @@
 <?php
+
 namespace App\Models;
-class Customer extends TenantRecord {
-    protected function casts(): array { return ['active' => 'boolean']; }
+
+class Customer extends TenantRecord
+{
+    protected function casts(): array
+    {
+        return ['active' => 'boolean'];
+    }
 }

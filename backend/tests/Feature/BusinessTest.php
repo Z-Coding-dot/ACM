@@ -23,6 +23,7 @@ class BusinessTest extends TestCase
     {
         $id = $this->actingAs($user, 'web')->postJson('/api/v1/businesses', self::input($name))->assertCreated()->json('activeBusinessId');
         $this->assertDatabaseHas('business_memberships', ['business_id' => $id, 'user_id' => $user->id, 'role' => 'owner']);
+
         return $id;
     }
 
@@ -71,7 +72,9 @@ class BusinessTest extends TestCase
 
     public function test_staff_members_can_read_but_cannot_modify_business_settings(): void
     {
-        $owner = User::factory()->create(); $id = $this->create($owner); $staff = User::factory()->create();
+        $owner = User::factory()->create();
+        $id = $this->create($owner);
+        $staff = User::factory()->create();
         Business::findOrFail($id)->memberships()->create(['user_id' => $staff->id, 'role' => BusinessRole::Staff]);
         $this->actingAs($staff)->withHeader('X-Business-ID', $id)->getJson('/api/v1/business')->assertOk()->assertJsonPath('data.permissions', ['workspace.read']);
         $this->patchJson('/api/v1/business', self::input('Unauthorized'))->assertForbidden();
@@ -79,8 +82,13 @@ class BusinessTest extends TestCase
 
     public function test_settings_hours_and_breaks_are_persisted_without_client_privilege_assignment(): void
     {
-        $owner = User::factory()->create(); $id = $this->create($owner); $input = self::input('Updated');
-        $input['currency'] = 'JPY'; $input['locale'] = 'fa-AF'; $input['hours'][1]['breaks'] = [['open' => '12:00', 'close' => '13:00']]; $input['role'] = 'staff';
+        $owner = User::factory()->create();
+        $id = $this->create($owner);
+        $input = self::input('Updated');
+        $input['currency'] = 'JPY';
+        $input['locale'] = 'fa-AF';
+        $input['hours'][1]['breaks'] = [['open' => '12:00', 'close' => '13:00']];
+        $input['role'] = 'staff';
         $this->withHeader('X-Business-ID', $id)->patchJson('/api/v1/business', $input)->assertOk()->assertJsonPath('data.currency', 'JPY')->assertJsonPath('data.hours.1.breaks.0.open', '12:00')->assertJsonPath('data.role', 'owner');
         $this->assertDatabaseHas('businesses', ['id' => $id, 'name' => 'Updated', 'locale' => 'fa-AF']);
     }

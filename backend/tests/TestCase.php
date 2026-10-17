@@ -2,11 +2,12 @@
 
 namespace Tests;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
-    public function actingAs(\Illuminate\Contracts\Auth\Authenticatable $user, $guard = null)
+    public function actingAs(Authenticatable $user, $guard = null)
     {
         // Each actor starts with fresh guards in the reused feature-test application.
         $this->app['auth']->forgetGuards();

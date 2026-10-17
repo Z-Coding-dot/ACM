@@ -10,7 +10,7 @@ import { useResources } from '../../hooks/use-resources';
 import type { Service } from '../../types/domain';
 import { api } from '../../services';
 import { serviceSchema } from '../../lib/validation';
-import { currencyScale, formatMoney } from '../../lib/dates';
+import { currencyScale, formatMoney, toMinorUnits } from '../../lib/dates';
 import { currencies } from '../../config/options';
 import { Button, PageHeading, Field, Input, Loading, ErrorState, Dialog, EmptyState, Notice } from '../../components/ui/primitives';
 type Values = z.infer<typeof serviceSchema>;
@@ -24,7 +24,7 @@ export function ServicesPage() {
 function ServiceForm({ service, onClose, onSaved }: { service?: Service; onClose: () => void; onSaved: () => void }) {
   const { t } = useTranslation(); const { business, industry } = useWorkspace(); const queryClient = useQueryClient();
   const { register, handleSubmit, watch, formState: { errors } } = useForm<Values>({ resolver: zodResolver(serviceSchema), defaultValues: service ? { ...service, price: service.priceMinor / currencyScale(service.currency), currency: service.currency as Values['currency'] } : { name: '', description: '', durationMinutes: 30, price: 0, currency: business.currency as Values['currency'], active: true } });
-  const mutation = useMutation({ mutationFn: (v: Values) => api.services.save(business.id, { name: v.name, description: v.description, durationMinutes: v.durationMinutes, currency: v.currency, priceMinor: Math.round(v.price * currencyScale(v.currency)), active: v.active }, service?.id), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: [business.id] }); onSaved(); } });
+  const mutation = useMutation({ mutationFn: (v: Values) => api.services.save(business.id, { name: v.name, description: v.description, durationMinutes: v.durationMinutes, currency: v.currency, priceMinor: toMinorUnits(v.price, v.currency), active: v.active }, service?.id), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: [business.id] }); onSaved(); } });
   return <form noValidate onSubmit={handleSubmit(v => mutation.mutate(v))}><div className="form-grid"><Field id="service-name" label={t('service.name')} error={errors.name?.message}><Input id="service-name" {...register('name')} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'service-name-error' : undefined} /></Field>
     {industry.serviceFields.includes('description') && <Field id="service-description" label={t('service.description')} error={errors.description?.message}><textarea id="service-description" className="input" rows={3} {...register('description')} /></Field>}
     {industry.serviceFields.includes('durationMinutes') && <Field id="service-duration" label={t('service.duration')} error={errors.durationMinutes?.message}><Input id="service-duration" type="number" min={5} max={480} {...register('durationMinutes', { valueAsNumber: true })} aria-invalid={!!errors.durationMinutes} aria-describedby={errors.durationMinutes ? 'service-duration-error' : undefined} /></Field>}
