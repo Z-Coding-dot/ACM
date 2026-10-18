@@ -46,7 +46,17 @@ http://127.0.0.1:8000/auth/google/callback
 
 Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` only in the ignored `backend/.env`. The public frontend entry is `http://127.0.0.1:8000/auth/google/redirect`. Production requires the real HTTPS domain and its matching callback. Automated OAuth tests mock Google's responses; successful live Google sign-in still requires your external configuration.
 
+Completing Google Console setup does not configure the local application. Copy the client ID and client secret from that **Web application** OAuth client into their matching entries in `backend/.env`, and keep `GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/auth/google/callback`. Then run `php backend/artisan config:clear` and restart `npm run backend:dev`. Never put the client secret in a `VITE_` variable.
+
+If sign-in returns to `/login?oauth=unavailable` before opening Google, check that both backend credentials are nonempty. Google requires the registered redirect URI to match exactly, including host, port and path; `localhost` and `127.0.0.1` are different hosts. See [Google's web-server OAuth documentation](https://developers.google.com/identity/protocols/oauth2/web-server).
+
+If Google consent succeeds but the callback returns `oauth=failed`, check the sanitized `Google authentication failed` entry in `backend/storage/logs/laravel.log`. `http_status=401` with `provider_error=invalid_client` means Google rejected the client credentials: copy the full client secret from the same OAuth client as the configured client ID, clear Laravel's configuration cache and start a fresh sign-in. Do not reuse an old callback URL.
+
+If the callback returns `oauth=link_required`, an email/password account already uses that email. Sign in with its password. Automatic linking is intentionally blocked, and an explicit Google-account-linking workflow is not implemented yet.
+
 ## Architecture and handover
+
+Platform administration is at **/platform** with separate server-managed access. See [platform access, business/user management, analytics, CMS and logo uploads](docs/PLATFORM_ADMINISTRATION.md). Business roles alone do not grant platform access.
 
 - `src/`: existing public pages, application UI, two locales and real HTTP services.
 - `backend/`: validation, policies, tenant-scoped models/APIs, migrations and MySQL tests.

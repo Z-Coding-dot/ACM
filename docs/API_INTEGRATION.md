@@ -16,9 +16,10 @@ Call `GET /sanctum/csrf-cookie` before writes and send the decoded `XSRF-TOKEN` 
 | POST | /auth/reset-password | email, token, password, password_confirmation; 204; token consumed and existing sessions invalidated |
 | POST | /auth/verification-notification | authenticated; resend verification; 204 or delivery failure 503 |
 | PATCH | /auth/account | name, email, currentPassword when changing email; 200 Session |
+| PUT | /auth/password | verified, enabled session; password, password_confirmation, currentPassword if a password already exists; 200 Session; 6 attempts/minute |
 | POST | /auth/workspace | verified member; businessId; 200 Session |
 
-Signup creates an unverified account with no business. `verificationEmailSent` records whether synchronous SMTP submission succeeded; a failure leaves the account available for retry. Email changes require the current password and clear verification. Google-only users can establish a password through password reset first.
+Signup creates an unverified account with no business. `verificationEmailSent` records whether synchronous SMTP submission succeeded; a failure leaves the account available for retry. Email changes require the current password and clear verification. `user.hasPassword` indicates whether account settings should display Set password or Change password. A verified Google-only account can establish its first password in account settings without a current password; subsequent changes require the existing password. Passwords must be confirmed, at least 8 characters and at most 72 UTF-8 bytes. Password changes are serialized for the user, rotate the remember token, delete other database sessions, and regenerate the current session. Password login and the linked Google identity both remain usable. No business membership is required for this account-level operation.
 
 Verification uses signed `GET /email/verify/{id}/{hash}` outside the API prefix. The current authenticated user, email hash, signature and expiry must match. Opening the message in another browser requires signing in and opening the link again.
 
@@ -37,7 +38,7 @@ An authorized business includes `id, name, industry, email, phone, timeZone, cur
 
 Socialite owns the stateful authorization-code exchange with PKCE. Only openid/profile/email scopes are requested. A verified provider email and stable Google ID are required. Unique external identities prevent duplicate linking. Existing identities authenticate their linked local user; an unrelated local account with a matching email is rejected with `link_required`. Automatic email linking and provider-token storage are not implemented.
 
-Errors redirect to the frontend login with a whitelisted `oauth` code: denied, state, identity, link_required or unavailable. Missing credentials never simulate success. See [Google's web-server flow](https://developers.google.com/identity/protocols/oauth2/web-server) and [OAuth production readiness](https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance).
+Errors redirect to the frontend login with a whitelisted `oauth` code: denied, state, identity, link_required, unavailable (missing configuration) or failed (callback/provider failure). Provider HTTP failures log only the exception class, HTTP status and an allowlisted OAuth error code; response bodies and credentials are excluded. Missing credentials never simulate success. See [Google's web-server flow](https://developers.google.com/identity/protocols/oauth2/web-server) and [OAuth production readiness](https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance).
 
 ## Business context and roles
 
@@ -57,10 +58,11 @@ Staff profiles can exist without login accounts. A linked user must already belo
 | GET/POST | /businesses | List permitted businesses / create owned business |
 | GET/PATCH | /business | Read/save active business configuration |
 | GET/POST | /memberships | Owner lists/adds an existing verified account by email and role |
+| POST | /memberships/accounts | Owner creates a new login with name, email, initial password and non-owner role; returns membership and verificationEmailSent |
 | PATCH/DELETE | /memberships/{id} | Owner changes non-owner role/removes access |
 | GET | /dashboard | Real daily schedule, upcoming appointments, status counts, contact total and recent contacts |
 
-Owners cannot be demoted or removed through these membership endpoints. There is no invitation-email or ownership-transfer workflow. Removing access preserves staff profiles and appointment history.
+Owners cannot be demoted or removed through these membership endpoints. Owners can either add an existing verified/enabled account or create a new login and assign its workspace role atomically. New logins start unverified, inherit the business locale, have hashed initial passwords and require email verification before workspace access. The owner remains signed in. An existing email is rejected by account creation; this endpoint never changes another account's password, name or platform privileges. Verification delivery failure leaves the account available for sign-in and resend. Login accounts are separate from bookable team profiles. There is no invitation-acceptance or ownership-transfer workflow. Removing access preserves staff profiles and appointment history.
 
 Business input: `name, industry, email, phone, timeZone, currency, locale, hours, appointmentSettings`. Industries: salon, clinic, education, consulting, other. Settings: `slotMinutes` 5–60, `allowUnassigned`, `requireConfirmation`. Seven hours entries use day 0 Sunday through 6 Saturday, local HH:mm, closed, and optional breaks `[{open,close}]`. Breaks must be ordered without overlaps and stay inside opening hours. Overnight hours/date-specific closures are not modeled.
 
@@ -113,6 +115,8 @@ Completed/cancelled/no-show records cannot be rescheduled or resurrected. Comple
 Query: search, from/to (inclusive business-local dates), status, staffId, customerId, page, per_page. Default window: 30 days before today through 120 days after that start. Explicit ranges are limited to 367 days. Customer history without from/to spans history but remains database-paginated. Availability query: serviceId, date (local YYYY-MM-DD), optional staffId, customerId, excludeId; response `{"data":["...Z"]}`.
 
 ## Errors, caching and operations
+
+Platform administration, CMS, analytics and authenticated business logo endpoints are documented in [Platform administration](PLATFORM_ADMINISTRATION.md#api-additions). Sessions now include `user.platformAdmin`; business profiles include `logoUrl` and `suspended`. Platform authorization is independent of business membership.
 
 HTTP: 401 unauthenticated, 403 unauthorized/unverified, 404 absent/inaccessible, 409 conflict, 419 invalid CSRF/session, 422 validation, 429 throttled, 503 delivery/service unavailable. Field errors are translated through approved frontend keys; arbitrary backend text is not rendered. Whitelisted conflict codes distinguish plan limits, referenced active bookings and schedule changes.
 

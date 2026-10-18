@@ -1,6 +1,6 @@
+import { usePublicText } from './public-text';
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigationType } from "react-router-dom";
-import { useTranslation } from "react-i18next";
 import { ArrowUpRight, Menu, UserRound, ArrowRight, ArrowUp } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { useAuth } from "../../app/workspace";
@@ -19,7 +19,7 @@ export function PublicAction({
   onNavigate?: () => void;
 }) {
   const { session } = useAuth();
-  const { t } = useTranslation();
+  const t = usePublicText();
   const reduced = useReducedMotion();
   return (
     <MotionLink
@@ -36,7 +36,7 @@ export function PublicAction({
   );
 }
 export function PublicLayout({ children }: { children: ReactNode }) {
-  const { t } = useTranslation();
+  const t = usePublicText();
   const { session } = useAuth();
   const { pathname, hash } = useLocation();
   const reduced = useReducedMotion();
@@ -165,7 +165,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
         </div>
       </footer>
       {menu && (
-        <Dialog title={t("landing.menu")} onClose={() => setMenu(false)}>
+        <Dialog title={t("landing.menu")} className="navigation-dialog" onClose={() => setMenu(false)}>
           <nav
             className="public-mobile-links"
             aria-label={t("landing.navigation")}

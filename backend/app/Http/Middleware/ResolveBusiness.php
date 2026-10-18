@@ -13,6 +13,7 @@ class ResolveBusiness
         abort_unless(is_string($id) && strlen($id) === 26, 404);
         $membership = $request->user()->memberships()->with('business')->where('business_id', $id)->first();
         abort_unless($membership, 404);
+        abort_if($membership->business->suspended_at, 403);
         $request->attributes->set('business', $membership->business);
         $request->attributes->set('membership', $membership);
 

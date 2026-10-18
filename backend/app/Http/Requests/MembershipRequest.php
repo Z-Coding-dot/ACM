@@ -9,7 +9,7 @@ class MembershipRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return in_array('memberships.write', $this->attributes->get('membership')?->role->permissions() ?? [], true);
     }
 
     protected function prepareForValidation(): void

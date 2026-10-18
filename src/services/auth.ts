@@ -13,6 +13,7 @@ export function authService(client: HttpClient): Api['auth'] {
     signup: async (name, email, password, confirmation, locale = 'en', returnTo) => profile(await write<Session>('/auth/signup', { name, email, password, password_confirmation: confirmation, locale, returnTo })),
     forgotPassword: email => write<void>('/auth/forgot-password', { email }),
     resetPassword: (email, token, password, confirmation) => write<void>('/auth/reset-password', { email, token, password, password_confirmation: confirmation }),
+    changePassword: async (password, confirmation, currentPassword) => profile(await write<Session>('/auth/password', { password, password_confirmation: confirmation, currentPassword }, 'PUT')),
     resendVerification: () => write<void>('/auth/verification-notification'),
     session: async () => profile(await client.request<Session>('/auth/session')),
     logout: () => write<void>('/auth/logout'),

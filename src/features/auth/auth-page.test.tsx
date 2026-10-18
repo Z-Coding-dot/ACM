@@ -9,7 +9,7 @@ import i18n from '../../i18n';
 import { ApiError } from '../../services/errors';
 const authApi = vi.hoisted(() => ({ session: vi.fn(), login: vi.fn(), signup: vi.fn(), forgotPassword: vi.fn(), resetPassword: vi.fn(), logout: vi.fn(), updateAccount: vi.fn(), selectBusiness: vi.fn() }));
 vi.mock('../../services', () => ({ api: { auth: authApi } }));
-function mount(mode: 'login' | 'signup' | 'forgot-password') { render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AuthProvider><AuthPage mode={mode} /></AuthProvider></MemoryRouter></QueryClientProvider>); }
+function mount(mode: 'login' | 'signup' | 'forgot-password', entry = '/') { render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[entry]}><AuthProvider><AuthPage mode={mode} /></AuthProvider></MemoryRouter></QueryClientProvider>); }
 describe('authentication screens', () => {
   beforeEach(async () => { Object.values(authApi).forEach(mock => mock.mockReset()); authApi.session.mockRejectedValue(new ApiError('error.unauthenticated', 401)); await i18n.changeLanguage('en'); });
   it.each([['login', 'Welcome back'], ['signup', 'Create an account'], ['forgot-password', 'Reset your password']] as const)('renders %s', async (mode, title) => { mount(mode); expect(await screen.findByRole('heading', { name: title })).toBeVisible(); });
@@ -31,5 +31,10 @@ describe('authentication screens', () => {
   it('shows an honest unavailable state for the unconnected Google provider', async () => {
     const user = userEvent.setup(); mount('signup'); await user.click(await screen.findByRole('button', { name: 'Continue with Google' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Google sign-in is not connected.'); expect(screen.getByRole('heading', { name: 'Create an account' })).toBeVisible();
+  });
+  it('explains a callback failure without claiming Google is not connected', async () => {
+    mount('login', '/login?oauth=failed');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in could not be completed.');
+    expect(screen.queryByText('Google sign-in is not connected. Continue with email.')).not.toBeInTheDocument();
   });
 });

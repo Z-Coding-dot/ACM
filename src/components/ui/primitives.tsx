@@ -1,5 +1,5 @@
 import { Children, cloneElement, isValidElement, type ReactNode, type InputHTMLAttributes, useId, useRef, useLayoutEffect, useEffect } from 'react';
-import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
+import { m, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 import { uiSpring } from '../../lib/motion';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, CalendarCheck2, X, LoaderCircle } from 'lucide-react';
@@ -8,7 +8,7 @@ import type { AppointmentStatus } from '../../types/domain';
 
 export function Button({ variant = 'primary', className = '', children, ...props }: HTMLMotionProps<'button'> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
   const reduced = useReducedMotion();
-  return <motion.button type="button" whileHover={!reduced && !props.disabled ? { y: -1 } : undefined} whileTap={!reduced && !props.disabled ? { scale: .98 } : undefined} transition={uiSpring} className={`button button-${variant} ${className}`} {...props}>{children}</motion.button>;
+  return <m.button type="button" whileHover={!reduced && !props.disabled ? { y: -1 } : undefined} whileTap={!reduced && !props.disabled ? { scale: .98 } : undefined} transition={uiSpring} className={`button button-${variant} ${className}`} {...props}>{children}</m.button>;
 }
 export function Field({ label, error, hint, children, id }: { label: string; error?: string; hint?: string; children: ReactNode; id: string }) {
   const { t } = useTranslation();
@@ -31,23 +31,38 @@ export function PageHeading({ title, description, actions }: { title: string; de
     if (anchor) { anchor.tabIndex = -1; anchor.scrollIntoView({ block: 'start' }); anchor.focus({ preventScroll: true }); }
     else document.getElementById('main-content')?.focus({ preventScroll: true });
   }, [route]);
-  return <motion.div className="page-heading" initial={{ y: reduced ? 0 : 8 }} animate={{ y: 0 }} transition={uiSpring}><div><h1>{title}</h1>{description && <p>{description}</p>}</div>{actions && <div className="page-actions">{actions}</div>}</motion.div>;
+  return <m.div className="page-heading" initial={{ y: reduced ? 0 : 8 }} animate={{ y: 0 }} transition={uiSpring}><div><h1>{title}</h1>{description && <p>{description}</p>}</div>{actions && <div className="page-actions">{actions}</div>}</m.div>;
 }
 export function StatusBadge({ status }: { status: AppointmentStatus }) { const { t } = useTranslation(); return <span className={`status status-${status}`}><span className="status-dot" />{t(`status.${status}`)}</span>; }
 export function EmptyState({ title, description, action }: { title?: string; description?: string; action?: ReactNode }) { const { t } = useTranslation(); return <div className="empty-state"><CalendarCheck2 size={28} aria-hidden="true" /><h3>{title || t('common.empty')}</h3>{description && <p>{description}</p>}{action}</div>; }
 export function ErrorState({ error, retry }: { error: unknown; retry?: () => void }) { const { t } = useTranslation(); return <div className="notice notice-error" role="alert"><AlertCircle size={18} aria-hidden="true" /><span>{t(errorKey(error))}</span>{retry && <Button variant="ghost" onClick={retry}>{t('common.retry')}</Button>}</div>; }
 export function Loading() { const { t } = useTranslation(); return <div className="loading" role="status"><LoaderCircle className="spin" size={22} aria-hidden="true" />{t('common.loading')}</div>; }
 export function Notice({ children }: { children: ReactNode }) { return <div className="notice" role="status">{children}</div>; }
-export function Dialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+export function Dialog({ title, children, onClose, className = '', footer }: { title: string; children: ReactNode; onClose: () => void; className?: string; footer?: ReactNode }) {
   const { t } = useTranslation(); const id = useId();
   const reduced = useReducedMotion();
   const dialog = useRef<HTMLDialogElement>(null); const returnFocus = useRef(document.activeElement as HTMLElement | null);
   useLayoutEffect(() => {
-    const node = dialog.current; const trigger = returnFocus.current; node?.showModal();
-    return () => { node?.close(); if (trigger?.isConnected) trigger.focus(); };
+    const node = dialog.current; const trigger = returnFocus.current;
+    const rootOverflow = document.documentElement.style.overflow, bodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden';
+    const viewport = window.visualViewport;
+    const resize = () => {
+      node?.style.setProperty('--dialog-viewport-height', `${viewport?.height ?? window.innerHeight}px`);
+      node?.style.setProperty('--dialog-viewport-top', `${viewport?.offsetTop ?? 0}px`);
+    };
+    resize(); node?.showModal();
+    viewport?.addEventListener('resize', resize); viewport?.addEventListener('scroll', resize);
+    window.addEventListener('resize', resize);
+    return () => {
+      viewport?.removeEventListener('resize', resize); viewport?.removeEventListener('scroll', resize);
+      window.removeEventListener('resize', resize); node?.close();
+      document.documentElement.style.overflow = rootOverflow; document.body.style.overflow = bodyOverflow;
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
   }, []);
-  return <dialog className="dialog" aria-labelledby={id} ref={dialog} onCancel={e => { e.preventDefault(); onClose(); }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <motion.div className="dialog-content" initial={{ y: reduced ? 0 : 8, scale: reduced ? 1 : .99 }} animate={{ y: 0, scale: 1 }} transition={uiSpring}><div className="dialog-heading"><h2 id={id}>{title}</h2><Button variant="ghost" aria-label={t('common.close')} onClick={onClose}><X size={20} /></Button></div>{children}</motion.div>
+  return <dialog className={`dialog ${className}`} aria-labelledby={id} ref={dialog} onCancel={e => { e.preventDefault(); onClose(); }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <m.div className="dialog-content" initial={{ y: reduced ? 0 : 8, scale: reduced ? 1 : .99 }} animate={{ y: 0, scale: 1 }} transition={uiSpring}><div className="dialog-heading"><h2 id={id}>{title}</h2><Button variant="ghost" aria-label={t('common.close')} onClick={onClose}><X size={20} /></Button></div><div className="dialog-body">{children}</div>{footer && <footer className="dialog-footer">{footer}</footer>}</m.div>
   </dialog>;
 }
 export function ConfirmDialog({ title, description, action, onClose, onConfirm, pending, error }: { title: string; description: string; action: string; onClose: () => void; onConfirm: () => void; pending?: boolean; error?: unknown }) {

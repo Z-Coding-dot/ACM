@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\HealthController;
+use App\Http\Middleware\EnsureAccountEnabled;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health/ready', HealthController::class)->withoutMiddleware('web');
@@ -18,6 +19,7 @@ Route::prefix('api/v1/auth')->group(function () {
         Route::get('/session', [AuthController::class, 'session']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::patch('/account', [AuthController::class, 'account'])->name('auth.account');
+        Route::put('/password', [AuthController::class, 'password'])->middleware(['verified', EnsureAccountEnabled::class, 'throttle:6,1'])->name('auth.password');
         Route::post('/verification-notification', [AuthController::class, 'verification'])->middleware('throttle:6,1');
         Route::post('/workspace', [BusinessController::class, 'select'])->middleware('verified');
     });

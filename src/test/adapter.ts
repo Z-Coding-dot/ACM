@@ -50,7 +50,7 @@ export function createMockApi(delay = 180): Api {
     return result;
   }
   return {
-    memberships: { async list() { return []; }, async add() { throw new ApiError('error.generic', 501); }, async setRole() { throw new ApiError('error.generic', 501); }, async remove() { throw new ApiError('error.generic', 501); } },
+    memberships: { async list() { return []; }, async createAccount() { throw new ApiError('error.generic', 501); }, async add() { throw new ApiError('error.generic', 501); }, async setRole() { throw new ApiError('error.generic', 501); }, async remove() { throw new ApiError('error.generic', 501); } },
     async dashboard() { throw new ApiError('error.generic', 501); },
     appointments: {
       ...appointments,
@@ -88,6 +88,7 @@ export function createMockApi(delay = 180): Api {
       async logout() { await pause(); session = null; },
       async updateAccount(name, email) { await pause(); if (!session) throw new ApiError('error.unauthenticated', 401); session.user = { ...session.user, name, email }; return structuredClone(session); },
       async resetPassword() { throw new ApiError('error.generic', 501); },
+      async changePassword() { throw new ApiError('error.generic', 501); },
       async resendVerification() { throw new ApiError('error.generic', 501); },
       async selectBusiness(id) { tenant(id); session!.activeBusinessId = id; return structuredClone(session!); },
     },

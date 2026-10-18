@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Globe2, ChevronDown, Check } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, m, useReducedMotion } from 'framer-motion';
 import type { Locale } from '../../types/domain';
 const languages: Locale[] = ['en', 'fa-AF'];
 export function LanguageDropdown({ disabled = false }: { disabled?: boolean }) {
@@ -21,6 +21,6 @@ export function LanguageDropdown({ disabled = false }: { disabled?: boolean }) {
     }
   }}>
     <button disabled={disabled} className="language-trigger" ref={trigger} aria-label={t('language.label')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}><Globe2 size={17} aria-hidden="true" /><span>{t(`language.${i18n.language}`)}</span><ChevronDown size={14} aria-hidden="true" /></button>
-    <AnimatePresence>{open && <motion.div className="language-menu" role="menu" aria-label={t('language.label')} initial={{ opacity: 0, scale: reduced ? 1 : .97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .12 }}>{languages.map((locale, index) => <button key={locale} role="menuitemradio" aria-checked={locale === i18n.language} tabIndex={-1} ref={node => { items.current[index] = node; }} onClick={() => { void i18n.changeLanguage(locale); close(true); }}><span lang={locale} dir={locale === 'en' ? 'ltr' : 'rtl'}>{t(`language.${locale}`)}</span>{i18n.language === locale && <Check size={16} aria-hidden="true" />}</button>)}</motion.div>}</AnimatePresence>
+    <AnimatePresence>{open && <m.div className="language-menu" role="menu" aria-label={t('language.label')} initial={{ opacity: 0, scale: reduced ? 1 : .97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .12 }}>{languages.map((locale, index) => <button key={locale} role="menuitemradio" aria-checked={locale === i18n.language} tabIndex={-1} ref={node => { items.current[index] = node; }} onClick={() => { void i18n.changeLanguage(locale); close(true); }}><span lang={locale} dir={locale === 'en' ? 'ltr' : 'rtl'}>{t(`language.${locale}`)}</span>{i18n.language === locale && <Check size={16} aria-hidden="true" />}</button>)}</m.div>}</AnimatePresence>
   </div>;
 }

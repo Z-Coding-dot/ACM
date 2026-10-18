@@ -111,6 +111,7 @@
 .public-footer-bottom .back-to-top { width: 44px; justify-content: center; border: 1px solid var(--border-brand); border-radius: 50%; }
 .public-footer-bottom .back-to-top:hover { background: var(--surface); border-color: var(--brand); }
 .public-information { max-width: 1040px; padding-block: var(--public-section-space); }
+.public-information .back-link { display: inline-flex; align-items: center; gap: var(--space-2); }
 .public-information h1 { font-size: var(--public-heading); }
 .public-information-lead { font-size: 1rem; color: var(--muted); margin-block-start: var(--space-4); }
 .public-information-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); margin-block-start: var(--space-8); }

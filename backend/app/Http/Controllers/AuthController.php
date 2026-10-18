@@ -52,6 +52,13 @@ class AuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put('auth.returnTo', ReturnDestination::safe($request->input('returnTo')));
 
+        if ($request->user()->disabled_at) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            abort(403);
+        }
+
         return $this->session($request);
     }
 
@@ -142,6 +149,25 @@ class AuthController extends Controller
         $sent = $changed ? $this->sendVerification($user) : null;
 
         return response()->json([...$this->profiles->for($user), 'verificationEmailSent' => $sent]);
+    }
+
+    public function password(AuthRequest $request)
+    {
+        $user = DB::transaction(function () use ($request) {
+            // Serialize first-password creation and later changes for this account.
+            $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
+            if ($user->password && ! Hash::check((string) $request->input('currentPassword'), $user->password)) {
+                throw ValidationException::withMessages(['currentPassword' => ['account.passwordIncorrect']]);
+            }
+            $user->forceFill(['password' => Hash::make($request->validated('password')), 'remember_token' => Str::random(60)])->save();
+            DB::table('sessions')->where('user_id', $user->id)->where('id', '!=', $request->session()->getId())->delete();
+
+            return $user;
+        });
+        $request->session()->regenerate(true);
+        Auth::guard('web')->setUser($user);
+
+        return response()->json($this->profiles->for($user));
     }
 
     private function sendVerification(User $user): bool

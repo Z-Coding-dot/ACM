@@ -14,7 +14,7 @@ class SessionProfile
         $active = collect($businesses)->firstWhere('id', $user->active_business_id)['id'] ?? ($businesses[0]['id'] ?? null);
 
         return [
-            'user' => ['id' => (string) $user->id, 'name' => $user->name, 'email' => $user->email, 'emailVerified' => $user->hasVerifiedEmail(), 'locale' => $user->locale, 'businessId' => $active],
+            'user' => ['id' => (string) $user->id, 'name' => $user->name, 'email' => $user->email, 'emailVerified' => $user->hasVerifiedEmail(), 'hasPassword' => filled($user->password), 'locale' => $user->locale, 'businessId' => $active, 'platformAdmin' => (bool) $user->is_platform_admin],
             'businesses' => $businesses,
             'activeBusinessId' => $active,
         ];

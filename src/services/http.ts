@@ -10,11 +10,12 @@ export function createHttpClient(baseUrl: string, timeoutMs = 15000): HttpClient
       if (!navigator.onLine) throw new ApiError('error.offline', 0);
       const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {
+        const multipart = body instanceof FormData;
         const url = path === '/sanctum/csrf-cookie' ? (/^https?:\/\//.test(base) ? new URL('/sanctum/csrf-cookie', base).href : '/sanctum/csrf-cookie') : `${base}${path}`;
         const response = await fetch(url, {
           method, credentials: 'include', signal: controller.signal,
-          headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(businessId ? { 'X-Business-ID': businessId } : {}), ...csrfHeader() },
-          body: body !== undefined ? JSON.stringify(body) : undefined,
+          headers: { Accept: 'application/json', ...(body !== undefined && !multipart ? { 'Content-Type': 'application/json' } : {}), ...(businessId ? { 'X-Business-ID': businessId } : {}), ...csrfHeader() },
+          body: multipart ? body : body !== undefined ? JSON.stringify(body) : undefined,
         });
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
