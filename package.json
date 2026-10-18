@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
+    "deploy:prepare": "node scripts/prepare-shared-hosting.mjs",
+    "deploy:test": "node --test scripts/shared-hosting-package.test.mjs scripts/shared-hosting-apache.test.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

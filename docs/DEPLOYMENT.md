@@ -1,80 +1,96 @@
-# ACM deployment and operations
+# Namecheap shared-hosting deployment
 
-Production packaging is prepared for a Linux VPS with Docker Engine/Compose, public DNS and HTTPS. No VPS deployment, real domain, external SMTP delivery or live Google consent flow is claimed by this repository's local tests.
+ACM runs on Namecheap shared hosting without Docker, a Node server, Nginx configuration or a persistent PHP process. React is built locally; cPanel serves the static frontend and PHP handles Laravel requests. `compose.dev.yaml` remains only for local MySQL/Mailpit and existing local data
+This prepares a deployment package; it does not publish your site. Namecheap account access, the real domain, SMTP, SSL and Google callbacks still require your configuration and live verification.
 
-## Production topology
+## Requirements and layout
 
-Caddy terminates HTTPS and forwards to Nginx. Nginx serves the built React/PWA and forwards API, CSRF, OAuth, verification and health paths to PHP-FPM. MySQL is private with persistent storage. The PHP runtime is 8.4; Laravel 12 is used to remain compatible with the local PHP 8.2 environment. Plan a framework upgrade before Laravel 12 security support ends on 24 February 2027 ([official release policy](https://laravel.com/docs/12.x/releases)).
+Enable SSH/Terminal in cPanel. Select PHP 8.4 for the domain and verify that the CLI PHP used by Composer/Artisan is also 8.4 (8.2 minimum). Enable Laravel's required extensions, including PDO MySQL, mbstring, fileinfo, OpenSSL, ctype, curl, DOM/XML, session and tokenizer. Composer 2 is needed on the server. Node 22.12+ is needed only on the build computer.
 
-Runtime credentials have SELECT/INSERT/UPDATE/DELETE on the ACM schema. A separate migration account has schema-level DDL privileges. Root and migration passwords are not present in the app environment. Initialization grants run only for a new MySQL volume. Never delete an existing data volume to reset passwords or replay initialization.
+Namecheap currently documents LiteSpeed, rewrite support, MariaDB and selectable PHP versions in its [software list](https://www.namecheap.com/support/knowledgebase/article.aspx/129/22/what-version-of-the-software-is-used-on-your-servers/). The MySQL-protocol connection in this template also connects to MariaDB. Our existing database tests run on MySQL 8.4; validate migrations, foreign keys and concurrent booking on your actual hosting database before launch.
 
-Storage and bootstrap/cache belong to www-data. The app runs without root privileges. The app image contains no environment secrets or browser test scripts. Caches are generated at startup from runtime environment values. Keep APP_KEY stable across releases; changing it invalidates encrypted cookies/sessions.
+Use one canonical HTTPS domain for both frontend and API. The prepared layout is:
 
-## First deployment — run on the VPS
-
-1. Install Docker/Compose, clone the repository and check out a reviewed release. Point the real domain's DNS at the VPS. Allow inbound 80/443; do not expose MySQL or PHP-FPM.
-2. Copy `deploy/.env.example` to `deploy/.env`; set mode 600. Fill the real ACM_DOMAIN and PUBLIC_ORIGIN (https://your-real-domain), SMTP relay and verified sender.
-3. Generate three different database passwords with `openssl rand -hex 32`. Supply DB_PASSWORD, MYSQL_ROOT_PASSWORD and MIGRATION_DB_PASSWORD. The bootstrap requires hexadecimal database passwords of at least 32 characters. Generate APP_KEY using `openssl rand -base64 32` and prefix the value with `base64:`. Do not commit or paste these values into chat.
-4. Optionally configure Google credentials and positive initial-plan limits. Blank limits mean no numeric cap. Keep all credentials server-side.
-
-From the repository root:
-
-```sh
-chmod 600 deploy/.env
-export ACM_VERSION="$(git rev-parse --short HEAD)"
-docker compose --env-file deploy/.env -f compose.prod.yaml config --quiet
-docker compose --env-file deploy/.env -f compose.prod.yaml build app web
-docker compose --env-file deploy/.env -f compose.prod.yaml up -d --wait mysql
-docker compose --env-file deploy/.env -f compose.prod.yaml run --rm migrate
-docker compose --env-file deploy/.env -f compose.prod.yaml up -d --wait app web scheduler https
-docker compose --env-file deploy/.env -f compose.prod.yaml exec app php artisan acm:production-check
-docker compose --env-file deploy/.env -f compose.prod.yaml exec app php artisan acm:health
+```text
+/home/CPANEL_USER/
+  acm-backend/       Laravel source, vendor, .env and private storage
+  public_html/      Built React files, .htaccess, .user.ini and backend.php
 ```
 
-Caddy obtains certificates for the configured real domain. Verify the HTTPS homepage, /health/ready, signup, verification, logout, password reset and business persistence in a clean browser. Confirm secure/HttpOnly session cookies and perform a backup/restore drill before accepting customer data. These commands do not publish a site until run on your VPS with its real domain.
+Only `public_html` is the document root. Never place the Laravel project, `.env`, credentials, SQL backups, logs or private uploads inside it. The public PHP bridge loads `../acm-backend/public/index.php`. For an addon/subdomain with a different document root, edit its `$backend` path to the absolute private Laravel directory before upload; do not move Laravel into the web root.
 
-Production sends mail synchronously with a bounded timeout. There is no queue worker requirement. Delivery failure is surfaced; account creation can succeed while verification delivery is retried. The scheduler runs Laravel's expired password-reset cleanup daily. Do not add a second scheduler for the same deployment.
+## Prepare the package locally
 
-Nginx request access logs are disabled and error logging is restricted to critical errors because reset/OAuth/verification URLs contain sensitive values. Laravel reports database exceptions without SQL bindings and provider/SMTP failures without sensitive provider response text. Keep debug disabled and protect server logs and backups.
-
-## Google Cloud manual configuration
-
-Create a Web application OAuth client. In development register exactly:
-
-- Callback: `http://127.0.0.1:8000/auth/google/callback`.
-- Frontend: `http://127.0.0.1:5173`.
-- Initiation: `http://127.0.0.1:8000/auth/google/redirect`.
-
-The redirect-only Socialite flow does not require a JavaScript SDK. If you configure an authorized JavaScript origin for related use, use the actual frontend origin. Do not confuse it with the callback URI.
-
-For production use a separate Google Cloud project and Web application client with the real HTTPS callback `https://your-real-domain/auth/google/callback`. Configure Google OAuth branding/audience/contact details and permitted testing users as applicable to your account/audience. Check publishing and verification requirements in [Google's current production guidance](https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance). The application requests only identity scopes. Set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET on the backend and ensure GOOGLE_REDIRECT_URI matches exactly.
-
-Mocked provider tests verify callback behavior and identity rules; they do not prove live Google sign-in. Test successful new/existing Google accounts, denied consent and logout in a real browser after configuration. Existing local accounts with matching email are deliberately not silently linked; use their email/password sign-in. Explicit account linking is not offered.
-
-## Backups — run on the VPS
-
-Protect the backup directory and encrypt copies before moving them to off-host storage. Retain the release identifier and a separately protected APP_KEY/environment backup. Database backups contain private contact/appointment data.
+From the repository root (use npm.cmd on Windows):
 
 ```sh
-install -d -m 700 deploy/backups
-docker compose --env-file deploy/.env -f compose.prod.yaml exec -T mysql sh -c 'MYSQL_PWD="$MIGRATION_DB_PASSWORD" exec mysqldump --user=acm_migrate --single-transaction --quick --no-tablespaces --set-gtid-purged=OFF --routines --triggers --events acm' | gzip > "deploy/backups/acm-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
-chmod 600 deploy/backups/*.sql.gz
+npm ci
+npm run check
+npm run deploy:test
+npm run deploy:prepare -- --origin https://your-real-domain.com
 ```
 
-Use a shell with pipeline failure detection (`set -o pipefail`) and check the command exit status; verify the archive with `gzip -t`. Schedule backups outside the application scheduler, monitor failures and test restoration on an isolated instance. Back up app_storage too if future features place non-reconstructable files there; currently it contains runtime caches/logs, not customer uploads. This release has no file-upload feature.
+The command builds the frontend with `/api/v1` and the real Google initiation URL. A new ignored `release/namecheap-.../` directory contains `public_html/`, `acm-backend/`, this guide and a SHA-256 file manifest. It never copies the local `.env`, vendor, private storage, database dumps, tests or cached Laravel configuration. Runtime storage starts empty. **Do not upload the whole repository or local backend directory.**
 
-## Restore, update and rollback
+For cPanel File Manager, zip only the generated release folders before upload and extract them into the private home and domain document root respectively; include hidden .htaccess/.user.ini files. Alternatively use SFTP. Never zip the whole workspace.
 
-Restore is destructive to the target database: verify the target project/volume and take a fresh backup first. Stop app/web/scheduler/https or put the site in maintenance mode. On the intended target only:
+The package intentionally has no vendor directory: install production dependencies over SSH in the private backend after upload. This avoids uploading local development packages. Rebuild for a different canonical domain; changing the server .env does not rewrite the built frontend's Google URL.
+
+## First installation in cPanel
+
+1. Point the real domain at the hosting account, install its SSL certificate and enable Force HTTPS Redirect in cPanel. Use the same canonical host everywhere; if needed redirect www to the chosen host. Do this before accepting sign-ins.
+2. In cPanel MySQL Databases, create the production database and database user, then assign that user to that database. Record the full cPanel-prefixed names. Grant the schema permissions needed for initial migrations; never use root credentials or the local development database. After setup, reduce runtime privileges to SELECT/INSERT/UPDATE/DELETE if your panel permits it. Temporarily restore migration privileges for future schema updates.
+3. Upload `acm-backend/` to the private home directory. Copy its `.env.example` to `.env`, set mode 600 and fill database, SMTP and Google values privately. Quote passwords containing spaces, # or $ using dotenv-compatible quoting; keep secrets out of commands and chat. Keep APP_ENV=production, APP_DEBUG=false, HTTPS origins and secure encrypted sessions.
+4. Set APP_URL and FRONTEND_URL to the canonical HTTPS origin, SANCTUM_STATEFUL_DOMAINS to its hostname, and CORS_ALLOWED_ORIGINS to its HTTPS origin. The package template already uses the origin supplied during preparation. For the database use the cPanel host (normally localhost), port and full prefixed names. Use your provider's verified SMTP sender and exact TLS settings. MAIL_SCHEME=smtp with port 587 uses STARTTLS; smtps with port 465 is another provider-dependent option.
+5. In SSH, select the correct PHP binary. `/opt/alt/php84/usr/bin/php` is an example; verify its availability/version on your account. Use that same binary for Composer, Artisan and cron. If `php -v` already reports the selected version, plain php is fine. Follow [Namecheap's Composer setup](https://www.namecheap.com/support/knowledgebase/article.aspx/9977/29/how-to-install-composer-on-shared-servers/) if Composer is not installed.
 
 ```sh
-gzip -dc deploy/backups/CHOSEN-VERIFIED-BACKUP.sql.gz | docker compose --env-file deploy/.env -f compose.prod.yaml exec -T mysql sh -c 'MYSQL_PWD="$MIGRATION_DB_PASSWORD" exec mysql --user=acm_migrate acm'
+cd /home/CPANEL_USER/acm-backend
+mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/private
+PHP_BIN=/opt/alt/php84/usr/bin/php
+"$PHP_BIN" -v
+# composer.phar may have a different private location on your account.
+"$PHP_BIN" /home/CPANEL_USER/composer.phar install --no-dev --prefer-dist --optimize-autoloader
+# First installation only: never regenerate an existing production APP_KEY.
+"$PHP_BIN" artisan key:generate --force
+"$PHP_BIN" artisan acm:production-check
+"$PHP_BIN" artisan migrate --force
+"$PHP_BIN" artisan config:cache
+"$PHP_BIN" artisan route:cache
+"$PHP_BIN" artisan view:cache
+"$PHP_BIN" artisan acm:health
 ```
 
-For updates: back up, retain the previous immutable image tags/digests, review migration compatibility, build the new ACM_VERSION, run the migrate service and recreate app/web/scheduler/https. Check health and real user workflows. Do not use `down -v` for updates.
+6. Ensure storage and bootstrap/cache are writable by your hosting PHP user, without world-write permissions (start with directories 755, files 644, .env 600). Do not use chmod 777. Upload the package's `public_html` contents into the domain document root, including hidden `.htaccess` and `.user.ini`. Preserve cPanel-generated PHP-handler lines and SSL-validation files when merging an existing .htaccess. The supplied .user.ini sets safe error/upload limits; if it is not honored, set those values in cPanel PHP Options. A logo upload is limited to 2 MiB, with a 3 MiB POST limit.
+7. Open `/health/ready` over HTTPS and verify JSON status ready. Then check the homepage, `/about`, `/login`, `/app/overview` and `/platform` route reloads. `/api/...` failures must return Laravel JSON, not React HTML. If PHP source is displayed or .htaccess fails, stop and correct the PHP/rewrite handler before continuing.
+8. Create and verify your real owner through signup. From the private backend, grant platform access using `"$PHP_BIN" artisan acm:platform-admin YOUR_VERIFIED_EMAIL`. The production database has no automatically created owner, no test account and no default password. Do not copy the local credential file or use --create-local in production.
 
-For rollback, restore the previous reviewed application/frontend images only when they are compatible with the current schema. Otherwise restore the matched database backup in maintenance mode and deploy its matching release. Do not blindly run destructive migration rollbacks against customer data. Keep previous images and backups until the new release is verified.
+No `artisan serve`, Vite dev server, queue daemon or Docker service runs on the hosting account. Email delivery is synchronous with a bounded timeout. Business logos are served by authenticated Laravel routes; do not create a public storage symlink for them.
 
-## Local commands are different
+## Google sign-in and email
 
-Local development uses `compose.dev.yaml`, backend/.env, ports 3307/1025/8025 and Mailpit; it never needs production HTTPS or Google credentials. See the root README. Browser fixtures and MySQL test schemas must remain isolated from production.
+Register the exact production callback `https://your-real-domain.com/auth/google/callback` in the Google Web application client. Configure consent audience/publishing/test-user rules for the intended audience. Set both credentials only in the private production .env. Initiation is `/auth/google/redirect`; credentials are never VITE variables. After changing server settings, clear/rebuild Laravel configuration and start a fresh sign-in.
+
+Test new and returning Google users, consent denial, logout and setting a password followed by email/password login. Existing unrelated local accounts are not silently linked to Google by matching email. Verify signup email and password-reset delivery to external addresses; local Mailpit delivery does not prove production SMTP delivery.
+
+## Cron and maintenance
+
+Namecheap disallows cron intervals shorter than five minutes: see its [cron documentation](https://www.namecheap.com/support/knowledgebase/article.aspx/9453/29/how-to-run-scripts-via-cron-jobs/). Configure one cron entry with `*/5 * * * *`, using the actual PHP binary:
+
+```sh
+/opt/alt/php84/usr/bin/php /home/CPANEL_USER/acm-backend/artisan schedule:run >> /home/CPANEL_USER/acm-cron.log 2>&1
+```
+
+Current scheduled tasks are daily reset-token and analytics/activity cleanup; their midnight minute is included in this five-minute interval. Laravel runs in UTC; cPanel cron uses server time. Do not change this to every minute on shared hosting or run schedule:work. Monitor and rotate the private cron/application logs; do not expose them in public_html. Configure an external uptime check for HTTPS `/health/ready` and review errors/SMTP failures. The hosting provider may retain access logs containing OAuth codes or signed verification URLs; restrict access and retention rather than assuming those logs are disabled.
+
+## Backups, updates and rollback
+
+Before accepting customer data, schedule private off-host backups and test restoration into a separate database/private storage directory. Use cPanel Backup/Backup Wizard or phpMyAdmin export for the production database and archive `acm-backend/storage/app/private/business-logos` for uploads. Keep a separately protected copy of production APP_KEY/.env and the release identifier. A database-only backup loses uploaded logos. Encrypt backups and keep them outside public_html; verify their contents and completion. Choose retention and monitoring appropriate to your business.
+
+For an update, back up the database/uploads first and keep the previous matching release. Enter Laravel maintenance mode using `artisan down`, upload the new private source and public files, install Composer dependencies, clear old caches with `artisan optimize:clear`, run `artisan migrate --force`, rebuild config/route/view caches and run preflight/health before `artisan up`. Retain .env, APP_KEY, uploaded logos and runtime directories: do not replace the private backend wholesale with the package's empty storage. Keep content-hashed old frontend assets until active browsers have updated. A service-worker update may require users to reload.
+
+Rollback to the previous application/frontend release only if it supports the current schema. Otherwise restore the matched database and uploads in maintenance mode. Never drop tables, delete storage or blindly roll back migrations on customer data. Test restore and rollback on a separate staging database, never your local or production database by accident.
+
+## Release acceptance
+
+On the actual Namecheap account verify HTTPS/cookie flags, private-file denial, SPA route reloads, signup/verification/reset, Google sign-in, workspace permissions, simultaneous booking conflicts, service/staff/contact CRUD, password changes, CMS publishing, logo upload/retrieval and mobile/RTL dialogs. Test backup/restore, cron and SMTP failures. Packaging and local Apache checks cannot establish the host's MariaDB behavior or resource capacity. Shared-hosting resource limits may become a constraint as businesses and concurrent traffic grow.

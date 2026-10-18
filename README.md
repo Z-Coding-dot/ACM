@@ -4,7 +4,7 @@ ACM combines a React/TypeScript frontend with Laravel, Sanctum, Socialite and My
 
 ## Local development
 
-Requirements: Node 22.12+, PHP 8.2+ with PDO MySQL and mbstring, Composer, Docker Desktop and Chromium for browser tests. Production Docker uses PHP 8.4. On Windows use `npm.cmd`/`npx.cmd` if PowerShell blocks npm scripts.
+Requirements: Node 22.12+, PHP 8.2+ with PDO MySQL and mbstring, Composer, Docker Desktop for local MySQL/Mailpit, and Chromium for browser tests. Production targets Namecheap shared hosting with PHP 8.4 and no Docker. On Windows use `npm.cmd`/`npx.cmd` if PowerShell blocks npm scripts.
 
 From the repository root:
 
@@ -54,6 +54,17 @@ If Google consent succeeds but the callback returns `oauth=failed`, check the sa
 
 If the callback returns `oauth=link_required`, an email/password account already uses that email. Sign in with its password. Automatic linking is intentionally blocked, and an explicit Google-account-linking workflow is not implemented yet.
 
+## Namecheap shared hosting
+
+Docker is only for local development. Hosting uses PHP 8.4, cPanel MariaDB/MySQL, HTTPS, SMTP and a five-minute cron entry; no Node or PHP background server is needed.
+
+```sh
+npm run deploy:test
+npm run deploy:prepare -- --origin https://your-real-domain.com
+```
+
+Upload only the prepared release: `public_html` contains the frontend and PHP bridge; `acm-backend` goes outside the public document root. The package excludes local secrets, credential files, uploads and caches. Install Composer production dependencies and configure the private server `.env` after upload. Follow the [Namecheap deployment guide](docs/DEPLOYMENT.md); package preparation does not publish the site.
+
 ## Architecture and handover
 
 Platform administration is at **/platform** with separate server-managed access. See [platform access, business/user management, analytics, CMS and logo uploads](docs/PLATFORM_ADMINISTRATION.md). Business roles alone do not grant platform access.
@@ -61,7 +72,7 @@ Platform administration is at **/platform** with separate server-managed access.
 - `src/`: existing public pages, application UI, two locales and real HTTP services.
 - `backend/`: validation, policies, tenant-scoped models/APIs, migrations and MySQL tests.
 - `compose.dev.yaml`: local MySQL and Mailpit.
-- `compose.prod.yaml` and `deploy/`: PHP 8.4, Nginx, MySQL, HTTPS proxy, scheduler and separate migration credentials.
+- `deploy/` and `npm run deploy:prepare -- --origin https://your-domain.com`: Namecheap/cPanel package with a static React document root and private Laravel backend. Production Docker files have been removed; local database containers remain unchanged.
 - [API contract](docs/API_INTEGRATION.md), [deployment and backups](docs/DEPLOYMENT.md), [backend implementation](docs/BACKEND_IMPLEMENTATION.md), [verification history](docs/VERIFICATION.md).
 - [Design system](docs/DESIGN_SYSTEM.md), [industry configuration](docs/INDUSTRY_CONFIGURATION.md).
 

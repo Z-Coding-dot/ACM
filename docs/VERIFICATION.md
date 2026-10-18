@@ -1,5 +1,18 @@
 # Application verification
 
+Deployment target updated on 18 October 2026: Namecheap shared hosting replaces the production Docker stack. Docker image/VPS instructions below are historical verification evidence, not the current deployment method. Local MySQL/Mailpit containers remain. Use [the current deployment guide](DEPLOYMENT.md).
+
+## Namecheap deployment preparation - 18 October 2026
+
+Production Docker/Compose, Nginx/Caddy and container initialization files were removed. Local compose.dev.yaml, private environment settings and existing local database volumes were retained. The new package builder copies application source explicitly, generates empty runtime storage and excludes local secrets, credentials, uploads, logs, vendor, tests and cached configuration.
+
+- npm.cmd run check: passed TypeScript, ESLint, 517-key translation parity, all 58 frontend tests and production build. Existing upstream Zod annotation/main-chunk notices remain non-fatal.
+- npm.cmd run deploy:test: 3 passed, including an isolated native Apache/PHP integration check. Verified SPA fallbacks, GET/POST/PUT backend routing, OAuth/verification query preservation, CSRF header forwarding, cache/security headers, private-file denial, missing-asset 404 and generic setup-incomplete 503 responses. Package tests verified origin validation, private-file exclusion and fresh empty runtime directories.
+- npm.cmd run deploy:prepare -- --origin https://acm.example.test: completed with a generated ignored release and file hashes. The example.test origin is only a packaging verification placeholder, not a deployed domain. No local credentials or business uploads were included.
+- PHP syntax/Pint and git diff whitespace checks passed for the new bridge and changes.
+
+The optional Apache test uses Windows XAMPP modules when available and explicitly skips on machines without them. It uses a disposable PHP fixture for routing, not production database records. Current work did not rerun backend/browser database suites because local Docker/MySQL was stopped. Namecheap LiteSpeed/PHP/MariaDB, DNS/HTTPS, SMTP, live Google authentication, cron and production backup/restore still require account-level staging verification. This deployment change does not resolve previously reported development-tool dependency advisories.
+
 ## Backend integration - 15 October 2026
 
 The application now uses Laravel, Sanctum, Socialite and MySQL. The frontend-only audits below are historical; their demo instructions, test counts and missing-backend items do not describe the current runtime. Use the [README](../README.md), [API contract](API_INTEGRATION.md), [backend handover](BACKEND_IMPLEMENTATION.md) and [deployment guide](DEPLOYMENT.md) for current behavior and commands.

@@ -3,6 +3,7 @@
 @source not "../e2e";
 @source not "../scripts";
 @source not "../backend";
+@source not "../release";
 
 .hours-day { border-block-end: 1px solid var(--border-subtle); padding-block: .35rem; }
 .hours-breaks { padding-inline-start: 1rem; }
