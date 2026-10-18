@@ -110,7 +110,7 @@ See [current verification results](VERIFICATION.md) for actual command outcomes.
 
 - Supply Google credentials and verify live OAuth. Supply production SMTP/sender, domain/DNS and VPS configuration, then deploy and verify HTTPS.
 - No payment gateway, charges or active-subscription claims. Initial features are available subject to administrator-configured limits; future billing requires a confirmed offer.
-- No invitation-email, ownership-transfer or explicit Google-account-linking UI. Owners can grant existing verified users access.
+- No invitation-acceptance, ownership-transfer or explicit Google-account-linking UI. Owners can add existing verified users or create login accounts with an initial password and email verification through Workspace access.
 - Weekly hours support same-day schedules and breaks. Overnight schedules/date-specific closure editors are outside this release. Existing calendar offers day/week/list views; the range API supports a month, but there is no new month-grid UI.
-- No offline writes, uploads, medical records, diagnoses, prescriptions, insurance or per-practitioner record privacy. Native Dari wording, physical devices/screen readers, native install and deployed HTTPS updates still need manual review.
+- No offline writes, medical records, diagnoses, prescriptions, insurance or per-practitioner record privacy. Business logo uploads are supported through private authenticated storage. Native Dari wording, physical devices/screen readers, native install and deployed HTTPS updates still need manual review.
 - Build succeeds with upstream Zod annotation warnings and a main-chunk size warning. Historical Lighthouse reports do not measure this backend deployment.

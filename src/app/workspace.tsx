@@ -8,7 +8,7 @@ import { SESSION_EXPIRED_EVENT } from '../services/http';
 import { ApiError } from '../services/errors';
 
 interface AuthContextValue {
-  session: Session | null; loading: boolean; switching: boolean; login: (email: string, password: string, remember?: boolean, returnTo?: string) => Promise<void>;
+  session: Session | null; loading: boolean; switching: boolean; login: (email: string, password: string, remember?: boolean, returnTo?: string) => Promise<Session>;
   signup: (name: string, email: string, password: string, confirmation: string, returnTo?: string) => Promise<void>;
   refreshSession: () => Promise<Session>; resetPassword: (email: string, token: string, password: string, confirmation: string) => Promise<void>;
   logout: () => Promise<void>; switchBusiness: (id: string) => Promise<void>; updateBusiness: (b: Business) => void;
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
   const value: AuthContextValue = {
     session, loading, switching, bootError, expired, retrySession: () => setAttempt(n => n + 1),
-    async login(email, password, remember = false, returnTo) { const s = await api.auth.login(email, password, remember, returnTo); queryClient.clear(); setBootError(null); setExpired(false); setSession(s); const b = s.businesses.find(b => b.id === s.activeBusinessId); if (b?.locale || s.user.locale) await i18n.changeLanguage(b?.locale || s.user.locale!); },
+    async login(email, password, remember = false, returnTo) { const s = await api.auth.login(email, password, remember, returnTo); queryClient.clear(); setBootError(null); setExpired(false); setSession(s); const b = s.businesses.find(b => b.id === s.activeBusinessId); if (b?.locale || s.user.locale) await i18n.changeLanguage(b?.locale || s.user.locale!); return s; },
     async signup(name, email, password, confirmation, returnTo) { const s = await api.auth.signup(name, email, password, confirmation, i18n.language === 'fa-AF' ? 'fa-AF' : 'en', returnTo); queryClient.clear(); setSession(s); setBootError(null); setExpired(false); },
     async refreshSession() { const revision = epoch.current; let s: Session; try { s = await api.auth.session(); } catch (error) { if (revision === epoch.current && error instanceof ApiError && [401, 419].includes(error.status)) { epoch.current++; await queryClient.cancelQueries(); queryClient.clear(); setSession(null); setExpired(true); } throw error; } if (revision !== epoch.current) throw new ApiError('error.sessionExpired', 401); await queryClient.cancelQueries(); if (revision !== epoch.current) throw new ApiError('error.sessionExpired', 401); queryClient.clear(); setSession(s); setBootError(null); return s; },
     async resetPassword(email, token, password, confirmation) { await api.auth.resetPassword(email, token, password, confirmation); await queryClient.cancelQueries(); queryClient.clear(); setSession(null); },

@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MembershipAccountRequest;
 use App\Http\Requests\MembershipRequest;
 use App\Models\Business;
 use App\Models\BusinessMembership;
 use App\Models\StaffMember;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class MembershipController extends Controller
@@ -20,7 +23,7 @@ class MembershipController extends Controller
 
     private function data(BusinessMembership $m): array
     {
-        return ['id' => (string) $m->id, 'userId' => (string) $m->user_id, 'name' => $m->user->name, 'email' => $m->user->email, 'role' => $m->role->value];
+        return ['id' => (string) $m->id, 'userId' => (string) $m->user_id, 'name' => $m->user->name, 'email' => $m->user->email, 'role' => $m->role->value, 'emailVerified' => $m->user->hasVerifiedEmail()];
     }
 
     public function index(Request $r)
@@ -36,7 +39,7 @@ class MembershipController extends Controller
         $v = $r->validated();
         $m = DB::transaction(function () use ($r, $v) {
             $business = Business::whereKey($r->attributes->get('business')->id)->lockForUpdate()->firstOrFail();
-            $user = User::where('email', $v['email'])->whereNotNull('email_verified_at')->first();
+            $user = User::where('email', $v['email'])->whereNotNull('email_verified_at')->whereNull('disabled_at')->first();
             if (! $user) {
                 throw ValidationException::withMessages(['email' => ['memberships.verifiedAccount']]);
             }
@@ -48,6 +51,33 @@ class MembershipController extends Controller
         }, 3);
 
         return response()->json(['data' => $this->data($m)], 201);
+    }
+
+    public function createAccount(MembershipAccountRequest $request)
+    {
+        $this->authorizeOwner($request);
+        $input = $request->validated();
+        try {
+            $membership = DB::transaction(function () use ($request, $input) {
+                $business = Business::whereKey($request->attributes->get('business')->id)->lockForUpdate()->firstOrFail();
+                abort_if($business->suspended_at, 403);
+                $user = User::create(['name' => $input['name'], 'email' => $input['email'], 'password' => $input['password'], 'locale' => $business->locale]);
+                $user->forceFill(['active_business_id' => $business->id])->save();
+
+                return $business->memberships()->create(['user_id' => $user->id, 'role' => $input['role']])->load('user');
+            }, 3);
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['email' => ['memberships.accountExists']]);
+        }
+        try {
+            $membership->user->sendEmailVerificationNotification();
+            $sent = true;
+        } catch (\Throwable $error) {
+            $sent = false;
+            Log::warning('Workspace account verification delivery failed.', ['exception' => $error::class]);
+        }
+
+        return response()->json(['data' => $this->data($membership), 'verificationEmailSent' => $sent], 201);
     }
 
     public function update(MembershipRequest $r, string $id)

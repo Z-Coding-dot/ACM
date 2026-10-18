@@ -3,12 +3,14 @@
 use App\Models\Appointment;
 use App\Models\Business;
 use App\Models\Customer;
+use App\Models\ExternalIdentity;
 use App\Models\Service;
 use App\Models\StaffMember;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 // Explicit, isolated browser fixtures; never loaded by a route or production seeder.
 require dirname(__DIR__, 2).'/vendor/autoload.php';
@@ -19,9 +21,19 @@ if (! $app->environment('browser') || config('database.default') !== 'mysql' || 
     exit(2);
 }
 $input = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+if (($input['action'] ?? '') === 'google-only') {
+    // Convert only the disposable account whose generated credentials the test owns.
+    $user = User::where('email', $input['email'])->firstOrFail();
+    if (! str_starts_with($user->email, 'browser-') || ! Hash::check($input['password'], $user->password)) {
+        exit(3);
+    }
+    $user->forceFill(['password' => null])->save();
+    ExternalIdentity::create(['user_id' => $user->id, 'provider' => 'google', 'provider_id' => 'browser-google-'.$user->id]);
+    exit(0);
+}
 $map = DB::transaction(function () use ($input) {
     $user = User::create(['name' => 'Zia Parsa', 'email' => $input['email'], 'password' => $input['password'], 'locale' => 'en']);
-    $user->forceFill(['email_verified_at' => now()])->save();
+    $user->forceFill(['email_verified_at' => now(), 'is_platform_admin' => ($input['platformAdmin'] ?? false) === true])->save();
     $map = [];
     foreach ($input['fixtures']['businesses'] as $b) {
         $business = Business::create(['name' => $b['name'], 'industry' => $b['industry'], 'email' => $b['email'], 'phone' => $b['phone'], 'time_zone' => $b['timeZone'], 'currency' => $b['currency'], 'locale' => $b['locale']]);

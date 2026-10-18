@@ -8,14 +8,15 @@ export interface Business {
   timeZone: string; currency: string; locale: Locale; hours: BusinessHours[];
   appointmentSettings: { slotMinutes: number; allowUnassigned: boolean; requireConfirmation: boolean };
   role?: 'owner' | 'administrator' | 'receptionist' | 'staff'; permissions?: string[];
+  logoUrl?: string | null; suspended?: boolean;
 }
 export type BusinessInput = Omit<Business, 'id' | 'role' | 'permissions'>;
-export interface User { id: string; name: string; email: string; businessId: string | null; emailVerified?: boolean; locale?: Locale }
+export interface User { id: string; name: string; email: string; businessId: string | null; emailVerified?: boolean; hasPassword?: boolean; locale?: Locale; platformAdmin?: boolean }
 export interface Customer { id: string; businessId: string; name: string; email: string; phone: string; notes: string; createdAt: string; active?: boolean }
 export interface Service { id: string; businessId: string; name: string; description: string; durationMinutes: number; priceMinor: number; currency: string; active: boolean }
 export interface StaffAvailability { staffId: string; businessId: string; hours: BusinessHours[] }
 export interface StaffMember { id: string; businessId: string; name: string; email: string; phone: string; serviceIds: string[]; hours: BusinessHours[]; active: boolean; userId?: string | null }
-export interface Membership { id: string; userId: string; name: string; email: string; role: 'owner' | 'administrator' | 'receptionist' | 'staff' }
+export interface Membership { id: string; userId: string; name: string; email: string; role: 'owner' | 'administrator' | 'receptionist' | 'staff'; emailVerified?: boolean }
 export interface Appointment { id: string; businessId: string; customerId: string; serviceId: string; staffId: string | null; startsAt: string; endsAt: string; status: AppointmentStatus; notes: string; customerName?: string; serviceName?: string; staffName?: string | null; durationMinutes?: number; priceMinor?: number; currency?: string }
 export interface Dashboard { date: string; daily: Appointment[]; upcoming: Appointment[]; statusCounts: Partial<Record<AppointmentStatus, number>>; customerTotal: number; recentCustomers: Customer[] }
 export type CustomerInput = Pick<Customer, 'name' | 'email' | 'phone' | 'notes'>;

@@ -1,8 +1,16 @@
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './workspace';
-import { Loading } from '../components/ui/primitives';
+import { Loading, ErrorState } from '../components/ui/primitives';
+import { ApiError } from '../services/errors';
+import { PublicContentProvider } from '../features/public/public-content';
+const PlatformLayout = lazy(() => import('../features/platform/platform-layout').then(m => ({ default: m.PlatformLayout })));
+const PlatformOverviewPage = lazy(() => import('../features/platform/platform-pages').then(m => ({ default: m.PlatformOverviewPage })));
+const PlatformDirectoryPage = lazy(() => import('../features/platform/platform-pages').then(m => ({ default: m.PlatformDirectoryPage })));
+const PlatformContentPage = lazy(() => import('../features/platform/platform-pages').then(m => ({ default: m.PlatformContentPage })));
+const PlatformActivityPage = lazy(() => import('../features/platform/platform-pages').then(m => ({ default: m.PlatformActivityPage })));
+const PlatformAccountPage = lazy(() => import('../features/platform/platform-account-page').then(m => ({ default: m.PlatformAccountPage })));
 import { AppLayout } from '../components/layout/app-layout';
 const AuthPage = lazy(() => import('../features/auth/auth-page').then(m => ({ default: m.AuthPage })));
 const VerifyEmailPage = lazy(() => import('../features/auth/verify-email-page').then(m => ({ default: m.VerifyEmailPage })));
@@ -23,11 +31,20 @@ const ProductInfoPage = lazy(() => import('../features/public/product-info-page'
 import { PwaControls } from '../components/layout/pwa-controls';
 import { SystemPage } from '../pages/system-pages';
 function ProtectedRoute() {
-  const auth = useAuth(); const location = useLocation();
+  const auth = useAuth(); const location = useLocation(); const { t } = useTranslation();
   if (!navigator.onLine) return <Navigate to="/offline" replace />;
   if (auth.session && auth.session.user.emailVerified !== true) return <Navigate to="/verify-email" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
+  if (auth.session?.user.platformAdmin && !auth.session.activeBusinessId) return <Navigate to="/platform" replace />;
+  if (auth.session?.businesses.find(b => b.id === auth.session!.activeBusinessId)?.suspended) return <main className="system-page"><ErrorState error={new ApiError('platform.workspaceSuspended', 403)} /><Link className="button button-secondary" to="/onboarding">{t('onboarding.existing')}</Link></main>;
   if (auth.session && !auth.session.businesses.some(b => b.id === auth.session!.activeBusinessId)) return <Navigate to="/onboarding" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
   return auth.loading ? <Loading /> : auth.session ? <Outlet /> : <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
+}
+function PlatformRoute() {
+  const auth = useAuth(), location = useLocation();
+  if (auth.loading) return <Loading />;
+  if (!auth.session) return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
+  if (!auth.session.user.emailVerified) return <Navigate to="/verify-email" replace />;
+  return auth.session.user.platformAdmin ? <Outlet /> : <ErrorState error={new ApiError('platform.forbidden', 403)} />;
 }
 function RouteEffects() {
   const { pathname } = useLocation(); const { t } = useTranslation();
@@ -42,10 +59,11 @@ function RouteEffects() {
   }, [pathname, t]); return null;
 }
 export function AppRouter() { const location = useLocation(); return <><RouteEffects /><Suspense fallback={<Loading />}><Routes>
-  <Route path="/" element={<LandingPage />} /><Route path="/about" element={<ProductInfoPage />} />
+  <Route element={<PublicContentProvider><Outlet /></PublicContentProvider>}><Route path="/" element={<LandingPage />} /><Route path="/about" element={<ProductInfoPage />} /></Route>
   <Route path="/login" element={<AuthPage key="login" mode="login" />} /><Route path="/signup" element={<AuthPage key="signup" mode="signup" />} /><Route path="/forgot-password" element={<AuthPage key="forgot" mode="forgot-password" />} />
   <Route path="/reset-password" element={<AuthPage key="reset" mode="reset-password" />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
   <Route path="/onboarding" element={<OnboardingPage />} />
+  <Route element={<PlatformRoute />}><Route path="/platform" element={<PlatformLayout />}><Route index element={<PlatformOverviewPage />} /><Route path="businesses" element={<PlatformDirectoryPage key="businesses" kind="businesses" />} /><Route path="users" element={<PlatformDirectoryPage key="users" kind="users" />} /><Route path="analytics" element={<PlatformOverviewPage analytics />} /><Route path="content" element={<PlatformContentPage />} /><Route path="activity" element={<PlatformActivityPage />} /><Route path="account" element={<PlatformAccountPage />} /></Route></Route>
   <Route element={<ProtectedRoute />}><Route path="/app" element={<AppLayout />}><Route index element={<Navigate to="overview" replace />} /><Route path="overview" element={<OverviewPage />} /><Route path="calendar" element={<CalendarPage />} /><Route path="appointments" element={<AppointmentsPage />} /><Route path="appointments/new" element={<BookingPage />} /><Route path="appointments/:id" element={<AppointmentDetailPage />} /><Route path="customers" element={<CustomersPage />} /><Route path="customers/new" element={<NewCustomerPage />} /><Route path="customers/:id" element={<CustomerDetailPage />} /><Route path="services" element={<ServicesPage />} /><Route path="staff" element={<StaffPage />} /><Route path="settings" element={<SettingsPage />} /></Route></Route>
   <Route path="/offline" element={<SystemPage offline />} /><Route path="*" element={<SystemPage />} />
-</Routes></Suspense>{!location.pathname.startsWith('/app') && <PwaControls />}</>; }
+</Routes></Suspense>{!location.pathname.startsWith('/app') && !location.pathname.startsWith('/platform') && <PwaControls />}</>; }

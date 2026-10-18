@@ -56,9 +56,9 @@ test('all target widths and both directions fit the viewport', async ({ page }) 
         await route(page, path); await expect(page.locator('main h1')).toBeVisible(); await expect(page.locator('main .loading')).toHaveCount(0);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1); expect(overflow, `${locale} ${width}px ${path}`).toBe(false);
         if ((width === 390 || width === 1440) && ['/app/overview', '/app/calendar', '/app/appointments/new', '/app/settings'].includes(path)) await page.screenshot({ path: `docs/screenshots/${locale}-${width}-${path.split('/').at(-1)}.png`, fullPage: true });
-        if (width < 1024) await expect(page.locator('.mobile-navigation')).toBeVisible();
+        if (width < 1024) await expect(page.locator('.mobile-menu-button')).toBeVisible();
       }
     }
   }
-  await page.setViewportSize({ width: 390, height: 844 }); await page.locator('.mobile-navigation').getByRole('button').click(); await expect(page.getByRole('dialog')).toBeVisible(); await page.getByRole('dialog').getByRole('link', { name: 'تنظیمات', exact: true }).click(); await expect(page.getByRole('heading', { name: 'تنظیمات', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 }); await page.locator('.mobile-menu-button').click(); await expect(page.getByRole('dialog')).toBeVisible(); await page.getByRole('dialog').getByRole('link', { name: 'تنظیمات', exact: true }).click(); await expect(page.getByRole('heading', { name: 'تنظیمات', exact: true })).toBeVisible();
 });

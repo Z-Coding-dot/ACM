@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAccountEnabled;
 use App\Http\Middleware\ResolveBusiness;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
@@ -16,7 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->trimStrings(except: ['currentPassword']);
         $middleware->statefulApi();
+        $middleware->appendToGroup('web', EnsureAccountEnabled::class);
         $middleware->trustProxies(at: ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
         $middleware->trustHosts(at: fn () => ['^'.preg_quote((string) parse_url(config('app.url'), PHP_URL_HOST)).'$'], subdomains: false);
         $middleware->alias(['business' => ResolveBusiness::class]);

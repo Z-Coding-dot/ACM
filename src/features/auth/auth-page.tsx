@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import { authSchema } from '../../lib/validation';
 import { useAuth } from '../../app/workspace';
 import { api } from '../../services';
@@ -18,8 +18,9 @@ import { LanguageDropdown } from '../../components/ui/language-dropdown';
 
 export function AuthPage({ mode }: { mode: 'login' | 'signup' | 'forgot-password' | 'reset-password' }) {
   const { t, i18n } = useTranslation(); const auth = useAuth(); const navigate = useNavigate(); const location = useLocation(); const reduced = useReducedMotion();
-  const destination = authDestination(location.state), parameters = new URLSearchParams(location.search);
-  const oauthMessages: Record<string, string> = { denied: 'auth.googleDenied', state: 'auth.googleState', identity: 'auth.googleIdentity', link_required: 'auth.googleLinkRequired', unavailable: 'auth.googleUnavailable' };
+  const requestedDestination = authDestination(location.state);
+  const destination = auth.session?.user.platformAdmin && requestedDestination === '/app/overview' ? '/platform' : requestedDestination, parameters = new URLSearchParams(location.search);
+  const oauthMessages: Record<string, string> = { denied: 'auth.googleDenied', state: 'auth.googleState', identity: 'auth.googleIdentity', link_required: 'auth.googleLinkRequired', unavailable: 'auth.googleUnavailable', failed: 'auth.googleFailed' };
   const oauthMessage = mode === 'login' ? oauthMessages[parameters.get('oauth') || ''] : undefined;
   const [error, setError] = useState<unknown>(oauthMessage ? new ApiError(oauthMessage) : null), [success, setSuccess] = useState(''), [visiblePassword, setVisiblePassword] = useState(false), [remember, setRemember] = useState(false);
   const { register, handleSubmit, setError: fieldError, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(authSchema(mode)), defaultValues: { name: '', email: mode === 'reset-password' ? parameters.get('email') || '' : '', password: '', confirmation: '' } });
@@ -30,7 +31,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' | 'forgot-password
   if (auth.loading) return <Loading />;
   if (auth.session && mode !== 'reset-password') return <Navigate to={destination} replace />;
   return <div className="auth-shell"><header className="auth-header"><BrandLogo description /><LanguageDropdown /></header><main className="auth-main">
-    <motion.div className="auth-card" initial={{ y: reduced ? 0 : 16 }} animate={{ y: 0 }} transition={uiSpring}>
+    <m.div className="auth-card" initial={{ y: reduced ? 0 : 16 }} animate={{ y: 0 }} transition={uiSpring}>
       <span className="eyebrow">{t('app.tagline')}</span><h1>{t(title)}</h1><p>{t(hint)}</p>
       {!!auth.bootError && <ErrorState error={auth.bootError} retry={auth.retrySession} />}{auth.expired && <Notice>{t('error.sessionExpired')}</Notice>}
       {['login', 'signup'].includes(mode) && <div className="auth-social"><Button variant="secondary" className="google-sign-in full-width" aria-describedby="google-status" disabled={isSubmitting} onClick={() => { if (googleUrl) window.location.assign(googleUrl); else setError(new ApiError('auth.googleUnavailable', 503)); }}><img src="/brand/google-g.png" width={20} height={20} alt="" aria-hidden="true" />{t('auth.google')}</Button><p id="google-status">{t(googleUrl ? 'auth.googleAvailable' : 'auth.googleHint')}</p><div className="auth-divider"><span>{t('auth.orEmail')}</span></div></div>}
@@ -38,7 +39,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' | 'forgot-password
       {!(mode === 'reset-password' && success) && <form noValidate onSubmit={handleSubmit(async values => {
         setError(null); setSuccess('');
         try {
-          if (mode === 'login') { await auth.login(values.email, values.password, remember, destination); navigate(destination, { replace: true }); }
+          if (mode === 'login') { const profile = await auth.login(values.email, values.password, remember, destination); navigate(profile.user.platformAdmin && destination === '/app/overview' ? '/platform' : destination, { replace: true }); }
           else if (mode === 'signup') { await auth.signup(values.name, values.email, values.password, values.confirmation, destination); navigate(destination, { replace: true }); }
           else if (mode === 'reset-password') { await auth.resetPassword(values.email, parameters.get('token') || '', values.password, values.confirmation); setSuccess('auth.passwordResetDone'); setVisiblePassword(false); }
           else { await api.auth.forgotPassword(values.email); setSuccess('auth.resetSent'); }
@@ -58,6 +59,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' | 'forgot-password
         <Button type="submit" className="full-width" disabled={isSubmitting}>{t(isSubmitting ? 'common.loading' : action)}<ArrowRight size={17} className="directional" aria-hidden="true" /></Button>
       </form>}
       <div className="auth-links"><Link to={mode === 'login' ? '/signup' : '/login'} state={location.state}>{t(mode === 'login' ? 'auth.noAccount' : 'auth.haveAccount')}</Link></div>
-    </motion.div>
+    </m.div>
   </main><footer className="auth-footer"><Link to="/"><ArrowLeft size={17} className="directional" aria-hidden="true" />{t('landing.backHome')}</Link><Link to="/about#data">{t('landing.dataInfo')}</Link></footer></div>;
 }

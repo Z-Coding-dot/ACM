@@ -11,6 +11,7 @@ const live: Api = {
   services: serviceService(http), staff: staffService(http), auth: authService(http),
   dashboard: async businessId => (await http.request<{ data: Dashboard }>('/dashboard', { businessId })).data,
   memberships: {
+    async createAccount(businessId, input) { await http.csrf(); return http.request<{ data: Membership; verificationEmailSent: boolean }>('/memberships/accounts', { method: 'POST', businessId, body: input }); },
     list: async businessId => (await http.request<{ data: Membership[] }>('/memberships', { businessId })).data,
     async add(businessId, email, role) { await http.csrf(); return (await http.request<{ data: Membership }>('/memberships', { method: 'POST', businessId, body: { email, role } })).data; },
     async setRole(businessId, id, role) { await http.csrf(); return (await http.request<{ data: Membership }>(`/memberships/${encodeURIComponent(id)}`, { method: 'PATCH', businessId, body: { role } })).data; },

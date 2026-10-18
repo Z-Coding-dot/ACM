@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import {
   PanelLeftClose,
   PanelLeftOpen,
-  MoreHorizontal,ChevronDown,LogOut,Settings,Plus, WifiOff,
+  Menu,ChevronDown,LogOut,Settings,Plus, WifiOff, ShieldCheck,
 } from "lucide-react";
 import { navigation } from "../../config/navigation";
 import { useWorkspace } from "../../app/workspace";
@@ -18,7 +18,7 @@ import { Button, Dialog, ErrorState } from "../ui/primitives";
 import { LanguageDropdown } from "../ui/language-dropdown";
 import { PwaControls } from "./pwa-controls";
 import { BrandMark } from "../ui/brand";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { uiSpring } from "../../lib/motion";
 
 export function AppLayout() {
@@ -78,25 +78,25 @@ export function AppLayout() {
       <a className="skip-link" href="#main-content">
         {t("nav.skip")}
       </a>
-      <aside className="sidebar">
-        <Link to="/app/overview" className="brand">
+      <m.aside className="sidebar" initial={{ opacity: reduced ? 1 : 0, x: reduced ? 0 : 8 }} animate={{ opacity: 1, x: 0 }} transition={uiSpring}>
+        <Link to="/app/overview" className="brand" aria-label={t('app.name')}>
           <BrandMark size={40} />
           <span>
             {t("app.name")}
-            <small>{t("app.tagline")}</small>
           </span>
         </Link>
         <div className="workspace-card">
           <span className="workspace-avatar">
-            {workspace.business.name.slice(0, 1)}
+            {workspace.business.logoUrl ? <img src={workspace.business.logoUrl} alt="" /> : workspace.business.name.slice(0, 1)}
           </span>
           <div>
             <strong>{workspace.business.name}</strong>
             <small>{t(workspace.industry.label)}</small>
           </div>
         </div>
-        <nav aria-label={t("nav.main")}>{nav.map(renderLink)}</nav>
+        <nav className="sidebar-navigation" aria-label={t("nav.main")}>{nav.map(renderLink)}</nav>
         <div className="sidebar-bottom">
+          {workspace.session!.user.platformAdmin && <Link className="button button-secondary platform-entry" to="/platform" title={t('platform.title')}><ShieldCheck size={18} aria-hidden="true" /><span>{t('platform.title')}</span></Link>}
           {workspace.session!.businesses.length > 1 && (
             <div className="workspace-switcher">
               
@@ -123,6 +123,7 @@ export function AppLayout() {
             variant="ghost"
             className="collapse-button"
             onClick={() => setCollapsed(!collapsed)}
+            aria-expanded={!collapsed}
             aria-label={t(collapsed ? "nav.expand" : "nav.collapse")}>
             {collapsed ? (
               <PanelLeftOpen size={18} />
@@ -132,10 +133,11 @@ export function AppLayout() {
             <span>{t(collapsed ? "nav.expand" : "nav.collapse")}</span>
           </Button>
         </div>
-      </aside>
+      </m.aside>
       <div className="main-shell">
         <header className="app-header">
           <div className="header-context">
+            <Button className="mobile-menu-button" variant="ghost" aria-label={t('landing.menu')} aria-haspopup="dialog" aria-expanded={more} onClick={() => setMore(true)}><Menu size={21} aria-hidden="true" /></Button>
             <Link
               className="mobile-brand"
               to="/app/overview"
@@ -173,7 +175,7 @@ export function AppLayout() {
             <Link to="/offline">{t("error.offline")}</Link>
           </div>
         )}
-        <motion.main
+        <m.main
           id="main-content"
           className="main-content"
           key={`${workspace.business.id}:${location.pathname}`}
@@ -186,26 +188,16 @@ export function AppLayout() {
           data-route={location.pathname}
         >
           <Outlet />
-        </motion.main>
+        </m.main>
         {!!error && !account && <ErrorState error={error} />}
         <PwaControls />
       </div>
-      <nav className="mobile-navigation" aria-label={t("nav.main")}>
-        {nav.filter((n) => n.mobile).map(renderLink)}
-        <button
-          onClick={() => setMore(true)}
-          aria-label={t("nav.more")}
-          aria-haspopup="dialog"
-        >
-          <MoreHorizontal size={20} />
-          <span>{t("nav.more")}</span>
-        </button>
-      </nav>
       {more && (
-        <Dialog title={t("nav.more")} onClose={() => setMore(false)}>
-          <nav className="more-navigation">
-            {nav.filter((n) => !n.mobile).map(renderLink)}
+        <Dialog title={t("nav.main")} className="navigation-dialog" onClose={() => setMore(false)}>
+          <nav className="more-navigation" aria-label={t('nav.main')}>
+            {nav.map(renderLink)}
           </nav>
+          {workspace.session!.user.platformAdmin && <Link className="button button-secondary" to="/platform" onClick={() => setMore(false)}><ShieldCheck size={17} aria-hidden="true" />{t('platform.title')}</Link>}
           {workspace.session!.businesses.length > 1 && (
             <div className="field">
               <label htmlFor="mobile-workspace">{t("onboarding.existing")}</label>
@@ -237,12 +229,13 @@ export function AppLayout() {
         </Dialog>
       )}
       {account && (
-        <Dialog title={t("account.menu")} onClose={() => setAccount(false)}>
+        <Dialog title={t("account.menu")} className="account-dialog" onClose={() => setAccount(false)} footer={<Button variant="ghost" onClick={() => { setError(null); void workspace.logout().then(() => navigate('/login')).catch(setError); }}><LogOut size={17} aria-hidden="true" />{t('account.logout')}</Button>}>
           <div className="account-info">
             <strong>{workspace.session!.user.name}</strong>
             <span dir="ltr">{workspace.session!.user.email}</span>
           </div>
           <div className="stack">
+            {workspace.session!.user.platformAdmin && <Link className="button button-secondary" to="/platform" onClick={() => setAccount(false)}><ShieldCheck size={17} aria-hidden="true" />{t('platform.title')}</Link>}
             <Link className="button button-secondary" to="/onboarding" onClick={() => setAccount(false)}>{t("onboarding.title")}</Link>
             <Link className="button button-secondary" to="/" onClick={() => setAccount(false)}>
               {t("landing.backHome")}
@@ -255,19 +248,6 @@ export function AppLayout() {
               <Settings size={17} />
               {t("account.settings")}
             </Link>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setError(null);
-                void workspace
-                  .logout()
-                  .then(() => navigate("/login"))
-                  .catch(setError);
-              }}
-            >
-              <LogOut size={17} />
-              {t("account.logout")}
-            </Button>
             {!!error && <ErrorState error={error} />}
           </div>
         </Dialog>

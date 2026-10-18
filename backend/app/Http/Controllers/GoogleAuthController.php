@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ExternalIdentity;
 use App\Models\User;
 use App\Services\ReturnDestination;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -85,19 +86,31 @@ class GoogleAuthController extends Controller
                     return $this->failed($request, 'link_required');
                 }
             }
+            if ($user->disabled_at) {
+                return $this->failed($request, 'denied');
+            }
             Auth::guard('web')->login($user);
             $request->session()->regenerate();
             $request->session()->forget('code_verifier');
 
-            return redirect(config('acm.frontend_url').$returnTo);
+            return redirect(config('acm.frontend_url').($user->is_platform_admin && $returnTo === '/app/overview' ? '/platform' : $returnTo));
         } catch (InvalidStateException) {
             return $this->failed($request, 'state');
         } catch (\DomainException) {
             return $this->failed($request, 'link_required');
         } catch (\Throwable $error) {
-            Log::warning('Google authentication failed.', ['exception' => $error::class]);
+            $context = ['exception' => $error::class];
+            if ($error instanceof RequestException) {
+                $response = $error->getResponse();
+                $payload = json_decode((string) $response?->getBody(), true);
+                $providerError = is_array($payload) ? ($payload['error'] ?? null) : null;
+                $context['http_status'] = $response?->getStatusCode();
+                // Never log the exception message, request, tokens or raw provider body.
+                $context['provider_error'] = in_array($providerError, ['invalid_client', 'invalid_grant', 'invalid_request', 'unauthorized_client', 'access_denied', 'temporarily_unavailable', 'server_error'], true) ? $providerError : 'unknown';
+            }
+            Log::warning('Google authentication failed.', $context);
 
-            return $this->failed($request, 'unavailable');
+            return $this->failed($request, 'failed');
         }
     }
 
