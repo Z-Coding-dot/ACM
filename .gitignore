@@ -8,3 +8,4 @@ test-results/
 .env.production.local
 deploy/.env
 deploy/backups/
+release/

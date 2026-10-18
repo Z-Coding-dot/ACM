@@ -1,10 +1,10 @@
 # Backend implementation and handover
 
-Updated 15 October 2026. The frontend now uses Laravel/MySQL for authentication, onboarding, contacts, services, staff, appointments, dashboard and settings. Local database/browser workflows are verified. VPS deployment, external SMTP delivery and live Google sign-in require real operator configuration.
+Updated 18 October 2026. The frontend now uses Laravel/MySQL for authentication, onboarding, contacts, services, staff, appointments, dashboard and settings. Local database/browser workflows are verified. Namecheap shared-hosting deployment, external SMTP delivery and live Google sign-in require real operator configuration.
 
 ## Architecture
 
-React/Vite stays at the repository root; Laravel lives once in backend/. The public homepage, existing design, brand assets, English and Dari/RTL remain. Laravel 12 supports local PHP 8.2; production Docker uses PHP 8.4. Plan a framework upgrade before Laravel 12 security support ends on 24 February 2027 ([support policy](https://laravel.com/docs/12.x/releases)).
+React/Vite stays at the repository root; Laravel lives once in backend/. The public homepage, existing design, brand assets, English and Dari/RTL remain. Laravel 12 supports local PHP 8.2; production targets PHP 8.4 on Namecheap shared hosting without Docker. Plan a framework upgrade before Laravel 12 security support ends on 24 February 2027 ([support policy](https://laravel.com/docs/12.x/releases)).
 
 Implementation followed the role brief: audit; Laravel/MySQL; email authentication; Google OAuth; onboarding/membership; directories; scheduling; dashboard/settings; demo removal; tests; deployment packaging. The initial audit found no backend and an in-browser mock adapter. That adapter is now confined to unit tests.
 
@@ -95,7 +95,7 @@ Configure OAuth branding, consent audience and test users as required by Google.
 - backend/app, routes, database, config, bootstrap and tests: controllers, policies, middleware, resources, validation, schema, factories, mail, health/preflight and MySQL tests.
 - src/services, src/app, src/features, src/lib, src/types and locales: HTTP integration, permissions, onboarding/verification/reset, error handling and persisted CRUD.
 - scripts/setup-backend-local.mjs, scripts/prepare-backend-tests.mjs, package scripts and Playwright configs: repeatable local/test setup.
-- compose.dev.yaml, compose.prod.yaml, deploy/*, .dockerignore and .gitattributes: services, production packaging and operational configuration.
+- compose.dev.yaml: local MySQL/Mailpit only. deploy/shared-hosting and scripts/prepare-shared-hosting.mjs: secret-free Namecheap packaging, Apache/LiteSpeed routing and private backend layout.
 - e2e, unit/backend tests and docs: regression tests, screenshots, API and operations handover.
 
 Removed runtime src/services/mock imports, demo-mode/build/environment switching, demo credentials/buttons, simulated auth/signup/Google success, fake runtime dashboard/directories and in-browser business-record persistence and unused demo-banner/login styles. The public product preview remains illustrative marketing UI and is never returned as application data.
@@ -104,11 +104,11 @@ Retained only for tests: src/test/adapter.ts, src/test/fixtures.ts, Laravel fact
 
 ## Verification and deployment
 
-See [current verification results](VERIFICATION.md) for actual command outcomes. Real MySQL workflows, production images, restricted grants and an isolated backup/restore round trip were exercised. The [deployment guide](DEPLOYMENT.md) contains exact VPS build/migration/startup, key generation, Google/SMTP, health, backup/restore, update and rollback commands. No VPS has been deployed.
+See [current verification results](VERIFICATION.md) for actual command outcomes. Real MySQL workflows and historical Docker/backup checks are recorded there. Production Docker deployment has been replaced with Namecheap shared hosting; the [deployment guide](DEPLOYMENT.md) covers package preparation, cPanel setup, Composer/migrations, Google/SMTP, cron, health and database/upload backups. No hosting account has been deployed.
 
 ## Remaining configuration and boundaries
 
-- Supply Google credentials and verify live OAuth. Supply production SMTP/sender, domain/DNS and VPS configuration, then deploy and verify HTTPS.
+- Supply Google credentials and verify live OAuth. Supply production SMTP/sender, domain/DNS and cPanel configuration, then deploy and verify HTTPS.
 - No payment gateway, charges or active-subscription claims. Initial features are available subject to administrator-configured limits; future billing requires a confirmed offer.
 - No invitation-acceptance, ownership-transfer or explicit Google-account-linking UI. Owners can add existing verified users or create login accounts with an initial password and email verification through Workspace access.
 - Weekly hours support same-day schedules and breaks. Overnight schedules/date-specific closure editors are outside this release. Existing calendar offers day/week/list views; the range API supports a month, but there is no new month-grid UI.

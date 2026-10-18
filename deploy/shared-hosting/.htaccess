@@ -1,0 +1,39 @@
+DirectoryIndex index.html
+Options -Indexes -MultiViews
+
+<IfModule mod_headers.c>
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "no-referrer"
+    Header always set Strict-Transport-Security "max-age=31536000"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+    Header set Cache-Control "no-cache"
+    Header set Cache-Control "public, max-age=31536000, immutable" env=ACM_ASSET
+    <Files "backend.php">
+        Header always set Cache-Control "no-store, private"
+    </Files>
+</IfModule>
+
+RewriteEngine On
+# Preserve cPanel certificate-validation files; deny other hidden paths.
+RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L]
+# Deny accidentally uploaded application trees and extra PHP scripts.
+RewriteRule ^(?:acm-backend|backend|vendor|storage|node_modules)(?:/|$) - [F,L,NC]
+RewriteRule ^(?!backend\.php$).*\.php(?:/|$) - [F,L,NC]
+
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteCond %{HTTP:X-XSRF-TOKEN} .
+RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-TOKEN}]
+
+# Backend endpoints must not fall back to the React HTML shell.
+RewriteRule ^(?:api(?:/|$)|sanctum(?:/|$)|auth/google(?:/|$)|email/verify(?:/|$)|up$|health(?:/|$)) backend.php [QSA,L]
+RewriteRule ^assets/ - [E=ACM_ASSET:1]
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+RewriteRule ^(?:assets|brand|icons)/ - [R=404,L]
+RewriteRule ^ index.html [L]
